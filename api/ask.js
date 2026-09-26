@@ -13,6 +13,18 @@ const BOB_API_KEY = process.env.BOB_API_KEY; // set this in Vercel's Environment
 const BOB_MODEL = process.env.BOB_MODEL || 'bob-2.0';
 
 module.exports = async (req, res) => {
+  // Allow cross-origin requests (browser → Vercel function on same domain is fine,
+  // but CORS headers are needed when testing locally against the deployed function)
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  // Handle preflight
+  if (req.method === 'OPTIONS') {
+    res.status(204).end();
+    return;
+  }
+
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Use POST' });
     return;
