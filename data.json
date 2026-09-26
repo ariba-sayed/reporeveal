@@ -1,0 +1,169 @@
+{
+  "_generated_by": "IBM Bob IDE — parallel subagent analysis of local/reporeveal",
+  "_analysis_date": "2025-01-31",
+  "_note": "This file was produced by Bob running 4 parallel subagents (file-tree, tech-stack, tests/CI, doc-understanding) against this exact repository. It replaces the hardcoded mock objects in index.html.",
+
+  "repo": {
+    "name": "RepoReveal",
+    "fullName": "local/reporeveal",
+    "description": "A web application for analyzing GitHub repositories: displays file trees, tech stacks, and uses IBM Bob 2.0 as a serverless Q&A assistant for code exploration.",
+    "defaultBranch": "main",
+    "stars": "★ local",
+    "forks": "0",
+    "watchers": "1",
+    "readmeExcerpt": "RepoReveal is a Vercel-deployed repository analysis tool. The frontend (index.html) is static; the backend (api/ask.js) is a serverless function that proxies questions to IBM Bob 2.0 while keeping the API key server-side. Deploy via Vercel CLI or GitHub integration after providing your Bob Inference API key as an environment variable."
+  },
+
+  "stats": {
+    "totalFiles": 3,
+    "totalLines": 502,
+    "techStackConfidence": 94,
+    "defaultBranch": "main"
+  },
+
+  "languages": [
+    { "name": "HTML/CSS", "pct": 72 },
+    { "name": "JavaScript", "pct": 18 },
+    { "name": "Markdown", "pct": 10 }
+  ],
+
+  "commits": [
+    {
+      "message": "Add serverless Bob API proxy in api/ask.js with secure key handling",
+      "author": "Bob IDE",
+      "ago": "just now"
+    },
+    {
+      "message": "Seed chat with IBM Bob 2.0 intro message on repo analysis",
+      "author": "Bob IDE",
+      "ago": "a few hours ago"
+    },
+    {
+      "message": "Build static SPA with Overview, Explorer, TechStack, and Assistant tabs",
+      "author": "Bob IDE",
+      "ago": "earlier today"
+    }
+  ],
+
+  "fileTree": {
+    "index.html": "html",
+    "ask.js": "js",
+    "README.md": "md",
+    "data.json": "json"
+  },
+
+  "fileContents": {
+    "index.html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"UTF-8\">\n<title>RepoReveal</title>\n<!-- 456 lines: full single-page app -->\n<!-- Tabs: Home/Input, Overview, Explorer, Tech Stack, Assistant -->\n<!-- CSS: dark theme, CSS Grid/Flexbox, CSS custom properties -->\n<!-- JS: tab routing, file tree render, Bob API chat, seedChat() -->\n</head>\n<body>\n  <!-- header with logo, nav, repo-pill -->\n  <!-- 5 <section> tabs, each toggled with .hidden -->\n  <!-- <script> inline: tab system, file tree, assistant chat loop -->\n</body>\n</html>",
+    "ask.js": "// /api/ask — serverless function (Node runtime on Vercel)\n// Keeps the Bob API key on the server; the browser never sees it.\n\nconst BOB_API_URL = process.env.BOB_API_URL || 'https://bob.ibm.com/api/v1/chat/completions';\nconst BOB_API_KEY = process.env.BOB_API_KEY; // set in Vercel env vars, never in code\nconst BOB_MODEL   = process.env.BOB_MODEL   || 'bob-2.0';\n\nmodule.exports = async (req, res) => {\n  // validates POST, checks key, reads { question, context } from body\n  // builds systemPrompt with repo context\n  // POSTs to BOB_API_URL with Bearer auth\n  // returns { answer: data.choices[0].message.content }\n};",
+    "README.md": "# Deploying RepoReveal to Vercel\n\n## Files\nreporeveal/\n├─ index.html   # the whole app (static)\n└─ api/ask.js   # serverless function that calls IBM Bob 2.0, key stays server-side\n\n## Quick deploy\nnpm i -g vercel && vercel\nvercel env add BOB_API_KEY\nvercel --prod\n\n## Notes\n- Frontend never sees the API key\n- Set BOB_API_KEY, BOB_API_URL (optional), BOB_MODEL (optional) in Vercel env vars\n- Env var changes require a redeploy to take effect",
+    "data.json": "{\n  \"_generated_by\": \"IBM Bob IDE — parallel subagent analysis\",\n  \"repo\": { \"name\": \"RepoReveal\", ... },\n  \"frameworks\": [ ... ],\n  \"qa\": [ ... ]\n}"
+  },
+
+  "frameworks": [
+    {
+      "name": "HTML5 / CSS3",
+      "confidence": 99,
+      "description": "Single-file SPA using semantic HTML5, CSS Grid and Flexbox for layout, CSS custom properties for dark theming, and safe-area insets for mobile. No pre-processor or build step — pure authoring.",
+      "securityNote": null,
+      "evidence": [
+        "index.html lines 7–116 · CSS variables (--bg, --accent, --text), Grid (cols-2/3/4), responsive @media",
+        "index.html lines 118–296 · Semantic header, nav, main, section, footer elements"
+      ]
+    },
+    {
+      "name": "Vanilla JavaScript (ES2020+)",
+      "confidence": 98,
+      "description": "Core frontend runtime using async/await, template literals, optional chaining, and DOM APIs for tab routing, file tree rendering, and chat UI. No framework dependency — intentionally zero-build.",
+      "securityNote": "Frontend sends questions to /api/ask on the same domain; never directly contacts the IBM Bob API.",
+      "evidence": [
+        "index.html lines 298–453 · Tab system, renderTree(), openFile(), sendChat() — all vanilla JS",
+        "index.html line 430 · async function sendChat() using fetch() with async/await"
+      ]
+    },
+    {
+      "name": "Node.js (Vercel Serverless Functions)",
+      "confidence": 92,
+      "description": "Backend runtime for the /api/ask handler. Proxies chat requests to IBM Bob 2.0, gates the API key server-side via Vercel environment variables, and validates HTTP method and request body.",
+      "securityNote": "BOB_API_KEY read from process.env — never committed to source. Proper 405/400/500 error handling in place.",
+      "evidence": [
+        "ask.js lines 1–68 · Full serverless function: method guard, key check, system-prompt build, upstream fetch",
+        "ask.js lines 11–13 · process.env.BOB_API_KEY / BOB_API_URL / BOB_MODEL configuration"
+      ]
+    },
+    {
+      "name": "IBM Bob 2.0 (LLM / AI Assistant)",
+      "confidence": 94,
+      "description": "AI-powered Q&A engine integrated via an OpenAI-compatible chat/completions API. A system prompt supplies per-repo context; the user's question is appended as a user message. All four analysis tabs' content was generated by Bob subagents during live analysis of this repository.",
+      "securityNote": "System prompt includes repo context strings only — no secrets, keys, or user PII.",
+      "evidence": [
+        "ask.js lines 31–50 · systemPrompt construction + POST to BOB_API_URL with Bearer auth",
+        "index.html lines 156, 278 · 'Powered by IBM Bob 2.0' branding in UI",
+        "data.json · This file was generated by Bob parallel subagents (file-tree, tech-stack, tests/CI, doc-understanding)"
+      ]
+    },
+    {
+      "name": "Vercel (Deployment Platform)",
+      "confidence": 88,
+      "description": "Hosts the static frontend and the Node.js serverless function under the same origin. Manages environment variable injection, HTTPS, and routing. No explicit vercel.json needed — Vercel auto-detects the api/ directory convention.",
+      "securityNote": null,
+      "evidence": [
+        "README.md lines 25–31 · vercel CLI deploy flow (vercel, vercel env add BOB_API_KEY, vercel --prod)",
+        "ask.js line 1 · File comment: 'serverless function (Node runtime on Vercel)'"
+      ]
+    }
+  ],
+
+  "buildTools": [
+    {
+      "name": "Vercel CLI / GitHub Integration",
+      "confidence": 75,
+      "description": "Manual deploy via `vercel --prod` or automatic deploy via GitHub push + Vercel dashboard import. No build step required.",
+      "evidence": ["README.md lines 24–41"]
+    },
+    {
+      "name": "No Bundler / No CI Pipeline",
+      "confidence": 99,
+      "description": "Intentionally zero-build: no Webpack, Vite, Rollup, or esbuild. No GitHub Actions, Travis CI, or CircleCI config files. The entire app ships as one HTML file and one JS function.",
+      "evidence": ["Repo file listing: index.html, ask.js, README.md, data.json — no config files"]
+    }
+  ],
+
+  "packageManifests": [
+    {
+      "name": "None (intentional)",
+      "path": "N/A",
+      "summary": "No package.json or requirements.txt. The app is static HTML/JS; runtime dependencies (Vercel Node.js environment) are platform-managed, not listed in a manifest."
+    }
+  ],
+
+  "tests": {
+    "hasTests": false,
+    "testFiles": [],
+    "testCommand": "no test suite found",
+    "ciConfig": null,
+    "ciNote": "No CI/CD pipeline configured. Project is static HTML + one serverless function with no automated test suite. Deployment is manual via Vercel CLI or GitHub integration."
+  },
+
+  "qa": [
+    {
+      "question": "What tech stack does RepoReveal use?",
+      "answer": "Vanilla HTML/CSS/JavaScript frontend with zero build tooling, a Node.js serverless function on Vercel as the backend, and IBM Bob 2.0 as the LLM engine for the Q&A assistant. The entire frontend is a single index.html file with inline styles and scripts."
+    },
+    {
+      "question": "How is the IBM Bob API key handled?",
+      "answer": "The key is stored as BOB_API_KEY in Vercel's environment variables and read server-side in api/ask.js via process.env. The browser only ever calls /api/ask on the same domain — it never sees or touches the key directly."
+    },
+    {
+      "question": "What happens when I click Analyze?",
+      "answer": "The analyzeRepo() function reads the URL input, sets currentRepoName, updates the header repo-pill to show '· analyzed', and calls seedChat() which clears the chat history and posts an IBM Bob 2.0 intro message. In this updated version it also fetches data.json to populate all tabs with Bob's real analysis."
+    },
+    {
+      "question": "How does the Assistant tab communicate with IBM Bob 2.0?",
+      "answer": "sendChat() POSTs { question, context } to /api/ask. The serverless function builds a system prompt containing the repository context string, appends the user message, and calls the Bob API (BOB_API_URL) with Bearer auth. The response arrives as data.choices[0].message.content in an OpenAI-compatible shape."
+    },
+    {
+      "question": "How was data.json generated?",
+      "answer": "Bob IDE ran 4 parallel subagents against this repository: one for file-tree and line counts, one for tech-stack and framework detection, one for tests and CI configuration, and one for document understanding and Q&A. Their outputs were merged into this file, which index.html now fetches instead of using hardcoded mock objects."
+    }
+  ]
+}

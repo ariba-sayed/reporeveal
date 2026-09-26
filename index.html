@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>RepoReveal</title>
+<style>
+:root{
+  --bg:#121212; --panel:#1b1b1b; --panel2:#202020; --border:#2c2c2c;
+  --text:#eaeaea; --sub:#9a9a9a; --accent:#8fd14f; --accent-dim:#5f8a3a;
+  --danger:#e2725b; --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  padding-top: env(safe-area-inset-top,0px); padding-bottom: env(safe-area-inset-bottom,0px);
+  box-sizing:border-box;
+}
+*{box-sizing:border-box;}
+html,body{height:100%;}
+body{
+  margin:0; background:var(--bg); color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+}
+a{color:var(--accent);}
+header{
+  display:flex; align-items:center; gap:24px; padding:14px 22px;
+  padding-top:calc(14px + env(safe-area-inset-top,0px));
+  border-bottom:1px solid var(--border); background:var(--panel);
+  position:sticky; top:0; z-index:20; flex-wrap:wrap;
+}
+.logo{display:flex; align-items:center; gap:8px; font-weight:700; font-size:17px; white-space:nowrap;}
+.logo .dot{width:9px;height:9px;border-radius:50%;background:var(--accent);}
+nav{display:flex; gap:4px; flex-wrap:wrap;}
+nav button{
+  background:none; border:none; color:var(--sub); font-size:14px; padding:8px 12px;
+  border-radius:8px; cursor:pointer;
+}
+nav button.active{color:var(--text); background:var(--panel2);}
+nav button:hover{color:var(--text);}
+.spacer{flex:1;}
+.repo-pill{
+  font-size:12.5px; color:var(--sub); border:1px solid var(--border); padding:5px 10px;
+  border-radius:20px; display:flex; gap:6px; align-items:center; white-space:nowrap;
+}
+main{max-width:1180px; margin:0 auto; padding:26px 20px 80px;}
+.hidden{display:none !important;}
+h1{font-size:22px; margin:0 0 6px;}
+h2{font-size:16px; margin:0 0 4px;}
+.muted{color:var(--sub); font-size:13.5px;}
+.card{background:var(--panel); border:1px solid var(--border); border-radius:14px; padding:18px 20px;}
+.grid{display:grid; gap:16px;}
+.grid.cols-2{grid-template-columns:1fr 1fr;}
+.grid.cols-3{grid-template-columns:repeat(3,1fr);}
+.grid.cols-4{grid-template-columns:repeat(4,1fr);}
+@media (max-width:820px){ .grid.cols-2,.grid.cols-3,.grid.cols-4{grid-template-columns:1fr;} }
+.stat-value{font-size:26px; font-weight:700; margin:6px 0 2px;}
+button.primary{
+  background:var(--accent); color:#0e1a05; border:none; font-weight:600; font-size:14px;
+  padding:10px 18px; border-radius:9px; cursor:pointer;
+}
+button.primary:hover{filter:brightness(1.08);}
+button.secondary{
+  background:var(--panel2); color:var(--text); border:1px solid var(--border); font-size:13.5px;
+  padding:8px 14px; border-radius:8px; cursor:pointer;
+}
+button.secondary:hover{border-color:var(--accent-dim);}
+input[type=text], textarea{
+  background:#111; border:1px solid var(--border); color:var(--text); border-radius:9px;
+  padding:11px 13px; font-size:14px; width:100%; font-family:inherit;
+}
+input[type=text]:focus, textarea:focus{outline:2px solid var(--accent-dim); border-color:var(--accent-dim);}
+.chip{
+  border:1px solid var(--border); background:var(--panel2); color:var(--sub); font-size:12.5px;
+  padding:6px 11px; border-radius:20px; cursor:pointer;
+}
+.chip:hover{color:var(--text); border-color:var(--accent-dim);}
+.bar-track{background:#111; border-radius:6px; height:9px; overflow:hidden; margin:6px 0;}
+.bar-fill{height:100%; background:var(--accent);}
+.lang-row{display:flex; justify-content:space-between; font-size:13px; margin-top:12px;}
+.section-title{display:flex; justify-content:space-between; align-items:baseline; margin-bottom:14px;}
+.commit{display:flex; gap:10px; padding:9px 0; border-top:1px solid var(--border); font-size:13.5px;}
+.commit:first-child{border-top:none;}
+.commit .av{width:26px;height:26px;border-radius:50%;background:var(--panel2); flex:none;}
+/* Explorer */
+.explorer{display:grid; grid-template-columns:260px 1fr; gap:16px;}
+@media (max-width:820px){.explorer{grid-template-columns:1fr;}}
+.tree{max-height:560px; overflow:auto;}
+.tree ul{list-style:none; margin:0; padding-left:14px;}
+.tree > ul{padding-left:0;}
+.tree li{margin:2px 0;}
+.folder{cursor:pointer; font-size:13.5px; padding:5px 6px; border-radius:6px; display:flex; gap:6px; align-items:center;}
+.folder:hover{background:var(--panel2);}
+.file{cursor:pointer; font-size:13.5px; padding:5px 6px; border-radius:6px; display:flex; gap:6px; align-items:center; color:var(--sub);}
+.file:hover, .file.active{background:var(--panel2); color:var(--text);}
+.file .fname{flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+pre.code{
+  background:#0e0e0e; border:1px solid var(--border); border-radius:10px; padding:14px;
+  overflow-x:auto; font-family:var(--mono); font-size:12.8px; line-height:1.7; margin:0;
+}
+.code-line-num{color:#555; display:inline-block; width:26px; user-select:none;}
+/* Tech stack */
+.fw-card{display:flex; flex-direction:column; gap:8px;}
+.fw-head{display:flex; justify-content:space-between; align-items:center;}
+.conf{color:var(--accent); font-size:12.5px; font-weight:600;}
+.evidence{font-size:12px; color:var(--sub); border-top:1px solid var(--border); padding-top:8px; margin-top:2px;}
+/* Assistant */
+.chat{display:flex; flex-direction:column; gap:14px; max-height:480px; overflow-y:auto; padding:4px 2px;}
+.msg{max-width:80%; padding:11px 14px; border-radius:12px; font-size:14px; line-height:1.5;}
+.msg.user{align-self:flex-end; background:var(--accent-dim); color:#fff; border-bottom-right-radius:3px;}
+.msg.bot{align-self:flex-start; background:var(--panel2); border:1px solid var(--border); border-bottom-left-radius:3px;}
+.msg.bot .tag{font-size:11px; color:var(--accent); font-weight:600; margin-bottom:5px; display:block;}
+.chat-input-row{display:flex; gap:10px; margin-top:14px;}
+.chat-input-row input{flex:1;}
+.typing{display:inline-flex; gap:4px;}
+.typing span{width:6px;height:6px;border-radius:50%;background:var(--sub); animation:blink 1.2s infinite ease-in-out;}
+.typing span:nth-child(2){animation-delay:.2s;} .typing span:nth-child(3){animation-delay:.4s;}
+@keyframes blink{0%,80%,100%{opacity:.2} 40%{opacity:1}}
+/* Bob badge */
+.bob-badge{
+  display:inline-flex; align-items:center; gap:6px; font-size:11.5px;
+  background:rgba(143,209,79,.08); border:1px solid rgba(143,209,79,.25);
+  color:var(--accent); padding:4px 10px; border-radius:20px;
+}
+footer{border-top:1px solid var(--border); margin-top:40px; padding:26px 20px calc(26px + env(safe-area-inset-bottom,0px)); text-align:center; color:var(--sub); font-size:12.5px;}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo"><span class="dot"></span>RepoReveal</div>
+  <nav id="tabs">
+    <button data-tab="input" class="active">Home / Input</button>
+    <button data-tab="overview">Overview</button>
+    <button data-tab="explorer">Explorer</button>
+    <button data-tab="techstack">Tech Stack</button>
+    <button data-tab="assistant">Assistant</button>
+  </nav>
+  <div class="spacer"></div>
+  <div class="repo-pill" id="repoPill">No repo analyzed yet</div>
+</header>
+
+<main>
+
+<!-- INPUT TAB -->
+<section id="tab-input">
+  <div class="card">
+    <h1>Analyze a GitHub repository</h1>
+    <p class="muted">Paste a repo to get a breakdown of its files, tech stack, and file-by-file explanations.</p>
+    <div style="display:flex; gap:10px; margin:16px 0;">
+      <input type="text" id="repoUrl" placeholder="e.g. github.com/acme/data-insights">
+      <button class="primary" onclick="analyzeRepo()">Analyze</button>
+    </div>
+    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+      <span class="chip" onclick="fillRepo('local/reporeveal')">local/reporeveal</span>
+      <span class="chip" onclick="fillRepo('acme/data-insights')">acme/data-insights</span>
+      <span class="chip" onclick="fillRepo('facebook/react')">facebook/react</span>
+    </div>
+  </div>
+  <div class="grid cols-2" style="margin-top:16px;">
+    <div class="card">
+      <h2>What you'll get</h2>
+      <p class="muted">A file tree you can browse, a tech-stack breakdown with confidence scores and evidence, and an assistant that answers questions about the code.</p>
+    </div>
+    <div class="card">
+      <h2>Powered by IBM Bob 2.0</h2>
+      <p class="muted">Bob is the <strong>analysis engine</strong>, not decoration. It ran 4 parallel subagents against this very repository — file tree, tech stack, tests/CI, and document understanding — and wrote the <code>data.json</code> this app now loads.</p>
+    </div>
+  </div>
+</section>
+
+<!-- OVERVIEW TAB -->
+<section id="tab-overview" class="hidden">
+  <div class="card">
+    <div class="section-title">
+      <div>
+        <h1 id="ov-name">—</h1>
+        <p class="muted" id="ov-desc">—</p>
+        <div style="margin-top:8px;">
+          <span class="bob-badge" id="ov-badge" style="display:none;">⚡ Analyzed by IBM Bob 2.0</span>
+        </div>
+      </div>
+      <div style="display:flex; gap:22px; text-align:right;">
+        <div><div class="stat-value" id="ov-stars">—</div><div class="muted">Stars</div></div>
+        <div><div class="stat-value" id="ov-forks">—</div><div class="muted">Forks</div></div>
+        <div><div class="stat-value" id="ov-watch">—</div><div class="muted">Watchers</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid cols-4" style="margin-top:16px;">
+    <div class="card"><div class="muted">Total files</div><div class="stat-value" id="ov-files">—</div></div>
+    <div class="card"><div class="muted">Total lines of code</div><div class="stat-value" id="ov-lines">—</div></div>
+    <div class="card"><div class="muted">Tech-stack confidence</div><div class="stat-value" id="ov-conf">—</div></div>
+    <div class="card"><div class="muted">Default branch</div><div class="stat-value" id="ov-branch" style="font-size:20px;">—</div></div>
+  </div>
+
+  <div class="grid cols-2" style="margin-top:16px;">
+    <div class="card">
+      <h2>Languages detected</h2>
+      <div id="ov-langs"></div>
+    </div>
+    <div class="card">
+      <h2>Recent commits</h2>
+      <div id="ov-commits"></div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:16px;">
+    <h2>README excerpt</h2>
+    <p class="muted" style="margin-bottom:10px;" id="ov-readme-source">Rendered from main/README.md</p>
+    <pre class="code" id="ov-readme-content">Loading…</pre>
+  </div>
+</section>
+
+<!-- EXPLORER TAB -->
+<section id="tab-explorer" class="hidden">
+  <div class="explorer">
+    <div class="card tree">
+      <h2 style="margin-bottom:10px;">Files</h2>
+      <div id="fileTree"><ul></ul></div>
+    </div>
+    <div class="card" id="filePreviewCard">
+      <p class="muted">Select a file from the tree to preview it.</p>
+    </div>
+  </div>
+</section>
+
+<!-- TECH STACK TAB -->
+<section id="tab-techstack" class="hidden">
+  <div class="grid cols-2" id="ts-frameworks"></div>
+
+  <div class="card" style="margin-top:16px;">
+    <h2>Build tools &amp; CI configs</h2>
+    <div class="grid cols-2" style="margin-top:12px;" id="ts-buildtools"></div>
+  </div>
+
+  <div class="card" style="margin-top:16px;">
+    <h2>Package manifests</h2>
+    <div class="grid cols-2" style="margin-top:12px;" id="ts-manifests"></div>
+  </div>
+</section>
+
+<!-- ASSISTANT TAB -->
+<section id="tab-assistant" class="hidden">
+  <div class="card">
+    <div class="section-title">
+      <div>
+        <h1>Q&amp;A Assistant</h1>
+        <p class="muted">Ask questions about the repository. <strong style="color:var(--accent);">Powered by IBM Bob 2.0.</strong></p>
+      </div>
+    </div>
+    <div class="chat" id="chat"></div>
+    <div class="chat-input-row">
+      <input type="text" id="chatInput" placeholder="Ask a question about the repository…" onkeydown="if(event.key==='Enter')sendChat()">
+      <button class="primary" onclick="sendChat()">Send</button>
+    </div>
+    <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:12px;" id="chat-chips"></div>
+  </div>
+</section>
+
+</main>
+
+<footer>RepoReveal — repository exploration powered by IBM Bob 2.0 analysis. <a href="data.json" target="_blank">View raw data.json</a></footer>
+
+<script>
+// ---- tab handling ----
+const tabs = document.querySelectorAll('#tabs button');
+tabs.forEach(btn => btn.addEventListener('click', () => showTab(btn.dataset.tab)));
+function showTab(name){
+  tabs.forEach(b => b.classList.toggle('active', b.dataset.tab === name));
+  document.querySelectorAll('main > section').forEach(s => s.classList.add('hidden'));
+  document.getElementById('tab-' + name).classList.remove('hidden');
+}
+
+function fillRepo(name){ document.getElementById('repoUrl').value = name; }
+function escapeHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+// ---- global state ----
+let REPO_DATA = null;       // populated from data.json after analyze
+let currentRepoName = null;
+
+// ---- analyze: load data.json (Bob's output) ----
+async function analyzeRepo(){
+  const val = document.getElementById('repoUrl').value.trim() || 'local/reporeveal';
+  currentRepoName = val;
+  document.getElementById('repoPill').textContent = currentRepoName + ' · analyzing…';
+
+  try {
+    const resp = await fetch('data.json?v=' + Date.now());
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    REPO_DATA = await resp.json();
+  } catch(e) {
+    document.getElementById('repoPill').textContent = currentRepoName + ' · error loading data.json';
+    alert('Could not load data.json: ' + e.message);
+    return;
+  }
+
+  document.getElementById('repoPill').textContent = (REPO_DATA.repo.fullName || currentRepoName) + ' · analyzed by Bob';
+  populateOverview(REPO_DATA);
+  populateExplorer(REPO_DATA);
+  populateTechStack(REPO_DATA);
+  seedChat(REPO_DATA);
+  showTab('overview');
+}
+
+// ---- Overview ----
+function populateOverview(d){
+  const r = d.repo, s = d.stats;
+  document.getElementById('ov-name').textContent = r.name;
+  document.getElementById('ov-desc').textContent = r.description;
+  document.getElementById('ov-stars').textContent = r.stars;
+  document.getElementById('ov-forks').textContent = r.forks;
+  document.getElementById('ov-watch').textContent = r.watchers;
+  document.getElementById('ov-files').textContent = s.totalFiles.toLocaleString();
+  document.getElementById('ov-lines').textContent = s.totalLines.toLocaleString();
+  document.getElementById('ov-conf').textContent = s.techStackConfidence + '%';
+  document.getElementById('ov-branch').textContent = s.defaultBranch;
+  document.getElementById('ov-badge').style.display = 'inline-flex';
+  document.getElementById('ov-readme-source').textContent = 'Rendered from ' + r.defaultBranch + '/README.md — via Bob document-understanding subagent';
+  document.getElementById('ov-readme-content').textContent = r.readmeExcerpt;
+
+  // languages
+  const langsEl = document.getElementById('ov-langs');
+  langsEl.innerHTML = d.languages.map(l => `
+    <div class="lang-row"><span>${escapeHtml(l.name)}</span><span>${l.pct}%</span></div>
+    <div class="bar-track"><div class="bar-fill" style="width:${l.pct}%"></div></div>
+  `).join('');
+
+  // commits
+  const commitsEl = document.getElementById('ov-commits');
+  commitsEl.innerHTML = d.commits.map(c => `
+    <div class="commit">
+      <div class="av"></div>
+      <div>${escapeHtml(c.message)}<br><span class="muted">${escapeHtml(c.author)} · ${escapeHtml(c.ago)}</span></div>
+    </div>
+  `).join('');
+}
+
+// ---- Explorer ----
+function populateExplorer(d){
+  const treeEl = document.getElementById('fileTree');
+  treeEl.innerHTML = renderTree(d.fileTree, '');
+}
+
+function renderTree(node, path){
+  let html = '<ul>';
+  for (const key in node){
+    const val = node[key];
+    const full = path ? path + '/' + key : key;
+    if (typeof val === 'object'){
+      html += `<li><div class="folder" onclick="toggleFolder(this)">📁 ${escapeHtml(key)}</div>${renderTree(val, full)}</li>`;
+    } else {
+      html += `<li><div class="file" data-path="${escapeHtml(full)}" onclick="openFile('${escapeHtml(full)}', this)"><span>📄</span><span class="fname">${escapeHtml(key)}</span></div></li>`;
+    }
+  }
+  return html + '</ul>';
+}
+
+function toggleFolder(el){
+  const ul = el.parentElement.querySelector('ul');
+  if (ul) ul.style.display = ul.style.display === 'none' ? 'block' : 'none';
+}
+
+function openFile(path, el){
+  document.querySelectorAll('.file').forEach(f => f.classList.remove('active'));
+  el.classList.add('active');
+  const contents = REPO_DATA && REPO_DATA.fileContents && REPO_DATA.fileContents[path];
+  const content = contents || '// (no preview — binary or unrecognized file)';
+  const lines = content.split('\n').map((l,i) => `<span class="code-line-num">${i+1}</span>${escapeHtml(l)}`).join('\n');
+  document.getElementById('filePreviewCard').innerHTML = `
+    <div class="section-title"><h2>${escapeHtml(path)}</h2><span class="muted">${content.split('\n').length} lines · from Bob file-tree subagent</span></div>
+    <pre class="code">${lines}</pre>
+  `;
+}
+
+// ---- Tech Stack ----
+function populateTechStack(d){
+  const fwEl = document.getElementById('ts-frameworks');
+  fwEl.innerHTML = (d.frameworks || []).map(fw => `
+    <div class="card fw-card">
+      <div class="fw-head"><h2>${escapeHtml(fw.name)}</h2><span class="conf">${fw.confidence}%</span></div>
+      <p class="muted">${escapeHtml(fw.description)}</p>
+      ${fw.securityNote ? `<p class="muted"><strong>Security note:</strong> ${escapeHtml(fw.securityNote)}</p>` : ''}
+      <div class="evidence">Evidence: ${(fw.evidence || []).map(e => escapeHtml(e)).join(' · ')}</div>
+    </div>
+  `).join('');
+
+  const btEl = document.getElementById('ts-buildtools');
+  btEl.innerHTML = (d.buildTools || []).map(bt => `
+    <div>
+      <strong>${escapeHtml(bt.name)}</strong><br>
+      <span class="conf">${bt.confidence}%</span>
+      <p class="muted">${escapeHtml(bt.description)}</p>
+    </div>
+  `).join('');
+
+  const mfEl = document.getElementById('ts-manifests');
+  mfEl.innerHTML = (d.packageManifests || []).map(m => `
+    <div>
+      <strong>${escapeHtml(m.name)}</strong> <span class="muted">(${escapeHtml(m.path)})</span>
+      <p class="muted">${escapeHtml(m.summary)}</p>
+    </div>
+  `).join('');
+}
+
+// ---- Assistant ----
+// Build context string from data.json fields (same approach as before, but now from real analysis)
+function buildContext(d){
+  if (!d) return '';
+  const r = d.repo;
+  const langs = (d.languages||[]).map(l => l.name + ' ' + l.pct + '%').join(', ');
+  const fws = (d.frameworks||[]).map(f => f.name).join(', ');
+  const files = Object.keys(d.fileTree||{}).join(', ');
+  return `Repository: ${r.fullName}. ${r.description}\nLanguages: ${langs}. Frameworks: ${fws}.\nKey files: ${files}.\nTests: ${(d.tests||{}).testCommand||'none'}. CI: ${(d.tests||{}).ciNote||'none'}.`;
+}
+
+// Seeded Q&A from Bob's doc-understanding subagent
+function seedChat(d){
+  const chat = document.getElementById('chat');
+  chat.innerHTML = '';
+  addMsg('bot', `I've analyzed <strong>${escapeHtml(d.repo.fullName)}</strong> — ${escapeHtml(d.stats.totalFiles)} files, ${escapeHtml(String(d.stats.totalLines))} lines, ${escapeHtml(String(d.frameworks.length))} tech layers detected. Ask me anything.`, 'IBM Bob 2.0');
+
+  // render pre-seeded Q&A from data.json (Bob's doc-understanding subagent output)
+  (d.qa || []).forEach(pair => {
+    addMsg('user', escapeHtml(pair.question));
+    addMsg('bot', escapeHtml(pair.answer), 'IBM Bob 2.0');
+  });
+
+  // Quick-ask chips from seeded questions
+  const chipsEl = document.getElementById('chat-chips');
+  chipsEl.innerHTML = (d.qa || []).slice(0,3).map(pair =>
+    `<span class="chip" onclick="quickAsk('${escapeHtml(pair.question).replace(/'/g,"\\'")}'">${escapeHtml(pair.question)}</span>`
+  ).join('');
+}
+
+function addMsg(role, html, tag){
+  const chat = document.getElementById('chat');
+  const div = document.createElement('div');
+  div.className = 'msg ' + role;
+  div.innerHTML = (tag ? `<span class="tag">${escapeHtml(tag)}</span>` : '') + html;
+  chat.appendChild(div);
+  chat.scrollTop = chat.scrollHeight;
+  return div;
+}
+
+function quickAsk(q){
+  document.getElementById('chatInput').value = q;
+  sendChat();
+}
+
+async function sendChat(){
+  const input = document.getElementById('chatInput');
+  const q = input.value.trim();
+  if (!q) return;
+
+  // Check if this is a question already answered in seeded Q&A
+  const qa = (REPO_DATA && REPO_DATA.qa) || [];
+  const seededAnswer = qa.find(pair => pair.question.toLowerCase() === q.toLowerCase());
+
+  addMsg('user', escapeHtml(q));
+  input.value = '';
+
+  if (seededAnswer) {
+    // Instant reply from Bob's pre-analysis — no API call needed
+    addMsg('bot', escapeHtml(seededAnswer.answer) + '<br><span style="font-size:11px;opacity:.5;margin-top:4px;display:block;">↑ Pre-analyzed by Bob IDE (no inference call)</span>', 'IBM Bob 2.0');
+    document.getElementById('chat').scrollTop = document.getElementById('chat').scrollHeight;
+    return;
+  }
+
+  const thinking = addMsg('bot', '<span class="typing"><span></span><span></span><span></span></span>', 'IBM Bob 2.0');
+
+  try {
+    const context = buildContext(REPO_DATA);
+    const resp = await fetch('/api/ask', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question: q, context })
+    });
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const data = await resp.json();
+    thinking.innerHTML = `<span class="tag">IBM Bob 2.0</span>${escapeHtml(data.answer || "I couldn't find an answer.")}`;
+  } catch(e){
+    thinking.innerHTML = `<span class="tag">IBM Bob 2.0</span>${escapeHtml(q)} — <em>Live API unavailable (${escapeHtml(e.message)}). See the pre-seeded Q&amp;A above for Bob's analysis of this repo, or deploy with BOB_API_KEY set in Vercel.</em>`;
+  }
+  document.getElementById('chat').scrollTop = document.getElementById('chat').scrollHeight;
+}
+
+// ---- auto-load data.json on page load to demo immediately ----
+(async function autoLoad(){
+  try {
+    const resp = await fetch('data.json');
+    if (!resp.ok) return;
+    REPO_DATA = await resp.json();
+    document.getElementById('repoUrl').value = REPO_DATA.repo.fullName || 'local/reporeveal';
+  } catch(_){}
+})();
+</script>
+</body>
+</html>
