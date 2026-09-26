@@ -97,9 +97,36 @@ pre.code{
 .code-line-num{color:#555; display:inline-block; width:26px; user-select:none;}
 /* Tech stack */
 .fw-card{display:flex; flex-direction:column; gap:8px;}
-.fw-head{display:flex; justify-content:space-between; align-items:center;}
+.fw-head{display:flex; justify-content:space-between; align-items:center; gap:12px;}
+.fw-head h2{margin:0;}
 .conf{color:var(--accent); font-size:12.5px; font-weight:600;}
+.conf-ring{flex:none;}
 .evidence{font-size:12px; color:var(--sub); border-top:1px solid var(--border); padding-top:8px; margin-top:2px;}
+.fw-tag{display:inline-block; font-size:11px; padding:2px 8px; border-radius:10px; margin-right:4px; margin-bottom:4px; border:1px solid var(--border); color:var(--sub);}
+.fw-tag.frontend{border-color:#5b8dd9; color:#5b8dd9;}
+.fw-tag.backend{border-color:#d97b3a; color:#d97b3a;}
+.fw-tag.devops{border-color:#a06cd5; color:#a06cd5;}
+.fw-tag.testing{border-color:#4caf7d; color:#4caf7d;}
+.fw-tag.language{border-color:#e0a63a; color:#e0a63a;}
+.fw-tag.tooling{border-color:var(--sub); color:var(--sub);}
+/* Health scorecard */
+.health-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(170px,1fr)); gap:12px; margin-top:12px;}
+.health-item{background:var(--panel2); border:1px solid var(--border); border-radius:10px; padding:12px 14px;}
+.health-item.pass{border-color:rgba(143,209,79,.4);}
+.health-item.warn{border-color:rgba(224,166,58,.4);}
+.health-item.fail{border-color:rgba(226,114,91,.4);}
+.health-icon{font-size:18px; margin-bottom:4px;}
+.health-label{font-size:12px; color:var(--sub); margin-top:2px;}
+/* Deps table */
+.deps-table{width:100%; border-collapse:collapse; font-size:13px; margin-top:10px;}
+.deps-table th{text-align:left; color:var(--sub); font-weight:500; padding:6px 8px; border-bottom:1px solid var(--border);}
+.deps-table td{padding:6px 8px; border-bottom:1px solid #1e1e1e; vertical-align:top;}
+.deps-table tr:last-child td{border-bottom:none;}
+.dep-name{font-family:var(--mono); font-size:12px;}
+.dep-ver{color:var(--sub); font-family:var(--mono); font-size:12px;}
+.dep-dev{font-size:10px; color:var(--sub); border:1px solid var(--border); border-radius:8px; padding:1px 6px; margin-left:4px;}
+/* Lang strip */
+.lang-strip{display:flex; height:8px; border-radius:4px; overflow:hidden; margin:10px 0 14px;}
 /* Assistant */
 .chat{display:flex; flex-direction:column; gap:14px; max-height:480px; overflow-y:auto; padding:4px 2px;}
 .msg{max-width:80%; padding:11px 14px; border-radius:12px; font-size:14px; line-height:1.5;}
@@ -240,17 +267,38 @@ footer{border-top:1px solid var(--border); margin-top:40px; padding:26px 20px ca
 
 <!-- TECH STACK TAB -->
 <section id="tab-techstack" class="hidden">
-  <div class="grid cols-2" id="ts-frameworks"></div>
 
-  <div class="card" style="margin-top:16px;">
-    <h2>Build tools &amp; CI configs</h2>
-    <div class="grid cols-2" style="margin-top:12px;" id="ts-buildtools"></div>
+  <!-- Health scorecard -->
+  <div class="card" id="ts-health-card">
+    <h2>Repo Health</h2>
+    <div class="health-grid" id="ts-health"></div>
   </div>
 
+  <!-- Language strip + frameworks -->
   <div class="card" style="margin-top:16px;">
-    <h2>Package manifests</h2>
-    <div class="grid cols-2" style="margin-top:12px;" id="ts-manifests"></div>
+    <div class="section-title"><h2>Detected Technologies</h2><span class="muted" id="ts-fw-count"></span></div>
+    <div id="ts-lang-strip" class="lang-strip"></div>
+    <div class="grid cols-2" id="ts-frameworks"></div>
   </div>
+
+  <!-- Dependencies -->
+  <div class="card" style="margin-top:16px;" id="ts-deps-card">
+    <div class="section-title"><h2>Dependencies</h2><span class="muted" id="ts-deps-meta"></span></div>
+    <div id="ts-deps"></div>
+  </div>
+
+  <!-- Build tools & manifests -->
+  <div class="grid cols-2" style="margin-top:16px;">
+    <div class="card">
+      <h2>Build tools &amp; CI</h2>
+      <div style="margin-top:12px;" id="ts-buildtools"></div>
+    </div>
+    <div class="card">
+      <h2>Package manifests</h2>
+      <div style="margin-top:12px;" id="ts-manifests"></div>
+    </div>
+  </div>
+
 </section>
 
 <!-- ASSISTANT TAB -->
@@ -638,31 +686,208 @@ function openFile(path, el){
 }
 
 // ---- Tech Stack ----
+
+const LANG_COLORS = {
+  'JavaScript':'#f0db4f','TypeScript':'#3178c6','Python':'#3572A5','HTML/CSS':'#e44b23',
+  'HTML':'#e44b23','CSS':'#563d7c','Ruby':'#701516','Go':'#00ADD8','Rust':'#dea584',
+  'Java':'#b07219','Kotlin':'#A97BFF','Swift':'#F05138','C#':'#178600','C++':'#f34b7d',
+  'C':'#555555','PHP':'#4F5D95','Shell':'#89e051','Vue':'#41b883','Svelte':'#ff3e00',
+  'Markdown':'#555','JSON':'#aaa','YAML':'#aaa','TOML':'#9c4221','SQL':'#e38c00',
+};
+
+const FW_CATEGORIES = {
+  'React':'frontend','Next.js':'frontend','Vue.js':'frontend','Svelte':'frontend',
+  'Astro':'frontend','Nuxt.js':'frontend','Angular':'frontend','Gatsby':'frontend',
+  'Express':'backend','Fastify':'backend','Django':'backend','FastAPI':'backend',
+  'Flask':'backend','Rails':'backend','Spring':'backend','Laravel':'backend',
+  'Node.js (Serverless Functions)':'backend',
+  'TypeScript':'language','Go modules':'language','Rust / Cargo':'language',
+  'Docker':'devops','GitHub Actions':'devops','Vercel':'devops','Kubernetes':'devops',
+  'Terraform':'devops','CircleCI':'devops',
+  'Vite':'tooling','Webpack':'tooling','Rollup':'tooling','Tailwind CSS':'tooling',
+  'Jest':'testing','Vitest':'testing','Playwright':'testing','Cypress':'testing',
+  'IBM Bob 2.0 (LLM / AI Assistant)':'tooling',
+  'HTML5 / CSS3':'frontend','Vanilla JavaScript (ES2020+)':'language',
+  'Vanilla JavaScript (ES6+)':'language',
+};
+
+function confRing(pct, size=44){
+  const r = (size-6)/2, circ = 2*Math.PI*r;
+  const fill = circ * pct / 100;
+  const color = pct >= 85 ? 'var(--accent)' : pct >= 65 ? '#e0a63a' : '#e2725b';
+  return `<svg class="conf-ring" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
+    <circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="var(--border)" stroke-width="3"/>
+    <circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="${color}" stroke-width="3"
+      stroke-dasharray="${fill} ${circ}" stroke-dashoffset="${circ/4}" stroke-linecap="round"/>
+    <text x="${size/2}" y="${size/2+4}" text-anchor="middle" fill="${color}" font-size="10" font-weight="600">${pct}%</text>
+  </svg>`;
+}
+
+function healthScore(d){
+  const checks = [];
+  const fw = d.frameworks || [];
+  const t = d.tests || {};
+  const langs = d.languages || [];
+  const fc = d.fileContents || {};
+
+  // CI
+  const hasCi = fw.some(f => f.name === 'GitHub Actions') || (t.ciConfig != null);
+  checks.push({ label:'CI/CD', status: hasCi ? 'pass' : 'fail',
+    icon: hasCi ? '✅' : '❌', detail: hasCi ? 'GitHub Actions detected' : 'No CI pipeline found' });
+
+  // Tests
+  checks.push({ label:'Tests', status: t.hasTests ? 'pass' : 'warn',
+    icon: t.hasTests ? '✅' : '⚠️', detail: t.hasTests ? t.testCommand : 'No test files detected' });
+
+  // README
+  const hasReadme = Object.keys(d.fileTree||{}).some(k => k.toLowerCase().startsWith('readme'));
+  checks.push({ label:'README', status: hasReadme ? 'pass' : 'warn',
+    icon: hasReadme ? '✅' : '⚠️', detail: hasReadme ? 'README present' : 'No README found' });
+
+  // License
+  const hasLicense = Object.keys(d.fileTree||{}).some(k => k.toLowerCase().startsWith('license'));
+  checks.push({ label:'License', status: hasLicense ? 'pass' : 'warn',
+    icon: hasLicense ? '✅' : '⚠️', detail: hasLicense ? 'License file present' : 'No license file' });
+
+  // Security notes
+  const secNotes = fw.filter(f => f.securityNote).length;
+  checks.push({ label:'Security', status: secNotes === 0 ? 'pass' : 'warn',
+    icon: secNotes === 0 ? '✅' : '⚠️', detail: secNotes === 0 ? 'No known issues' : `${secNotes} dependency concern${secNotes>1?'s':''}` });
+
+  // Dockerfile
+  const hasDocker = fw.some(f => f.name === 'Docker');
+  checks.push({ label:'Container', status: hasDocker ? 'pass' : 'warn',
+    icon: hasDocker ? '✅' : '○', detail: hasDocker ? 'Dockerfile detected' : 'Not containerised' });
+
+  return checks;
+}
+
+function parseDeps(fileContents){
+  const rows = [];
+  // package.json
+  const pkg = fileContents['package.json'];
+  if (pkg) {
+    try {
+      const p = JSON.parse(pkg);
+      const deps = p.dependencies || {};
+      const devDeps = p.devDependencies || {};
+      for (const [name, ver] of Object.entries(deps)) rows.push({ name, ver, dev: false, src: 'npm' });
+      for (const [name, ver] of Object.entries(devDeps)) rows.push({ name, ver, dev: true, src: 'npm' });
+    } catch{}
+  }
+  // requirements.txt
+  const req = fileContents['requirements.txt'];
+  if (req) {
+    for (const line of req.split('\n')) {
+      const l = line.trim();
+      if (!l || l.startsWith('#')) continue;
+      const m = l.match(/^([A-Za-z0-9_.\-]+)\s*([=><!].+)?/);
+      if (m) rows.push({ name: m[1], ver: m[2] ? m[2].trim() : '', dev: false, src: 'pip' });
+    }
+  }
+  // go.mod
+  const gomod = fileContents['go.mod'];
+  if (gomod) {
+    for (const line of gomod.split('\n')) {
+      const m = line.trim().match(/^\s*([\w.\-\/]+)\s+(v[\w.\-]+)/);
+      if (m) rows.push({ name: m[1], ver: m[2], dev: false, src: 'go' });
+    }
+  }
+  // Cargo.toml
+  const cargo = fileContents['Cargo.toml'];
+  if (cargo) {
+    for (const line of cargo.split('\n')) {
+      const m = line.match(/^([\w\-]+)\s*=\s*"([^"]+)"/);
+      if (m && m[1] !== 'name' && m[1] !== 'version') rows.push({ name: m[1], ver: m[2], dev: false, src: 'cargo' });
+    }
+  }
+  return rows;
+}
+
 function populateTechStack(d){
-  const fwEl = document.getElementById('ts-frameworks');
-  fwEl.innerHTML = (d.frameworks || []).map(fw => `
+  // ---- Health scorecard ----
+  const health = healthScore(d);
+  document.getElementById('ts-health').innerHTML = health.map(h => `
+    <div class="health-item ${h.status}">
+      <div class="health-icon">${h.icon}</div>
+      <div style="font-size:13px; font-weight:600;">${escapeHtml(h.label)}</div>
+      <div class="health-label">${escapeHtml(h.detail)}</div>
+    </div>
+  `).join('');
+
+  // ---- Language colour strip ----
+  const langs = d.languages || [];
+  document.getElementById('ts-lang-strip').innerHTML = langs.map(l => {
+    const color = LANG_COLORS[l.name] || '#555';
+    return `<div style="width:${l.pct}%; background:${color}; title='${escapeHtml(l.name)}'" title="${escapeHtml(l.name)} ${l.pct}%"></div>`;
+  }).join('');
+
+  // ---- Framework cards ----
+  const fws = d.frameworks || [];
+  document.getElementById('ts-fw-count').textContent = `${fws.length} detected`;
+  document.getElementById('ts-frameworks').innerHTML = fws.map(fw => {
+    const cat = FW_CATEGORIES[fw.name] || 'tooling';
+    return `
     <div class="card fw-card">
-      <div class="fw-head"><h2>${escapeHtml(fw.name)}</h2><span class="conf">${fw.confidence}%</span></div>
+      <div class="fw-head">
+        <div>
+          <h2>${escapeHtml(fw.name)}</h2>
+          <div style="margin-top:4px;"><span class="fw-tag ${cat}">${cat}</span></div>
+        </div>
+        ${confRing(fw.confidence)}
+      </div>
       <p class="muted">${escapeHtml(fw.description)}</p>
-      ${fw.securityNote ? `<p class="muted"><strong>Security note:</strong> ${escapeHtml(fw.securityNote)}</p>` : ''}
+      ${fw.securityNote ? `<p class="muted" style="color:#e0a63a;">⚠️ ${escapeHtml(fw.securityNote)}</p>` : ''}
       <div class="evidence">Evidence: ${(fw.evidence || []).map(e => escapeHtml(e)).join(' · ')}</div>
+    </div>`;
+  }).join('');
+
+  // ---- Dependencies table ----
+  const deps = parseDeps(d.fileContents || {});
+  const depsEl = document.getElementById('ts-deps');
+  if (deps.length === 0) {
+    document.getElementById('ts-deps-card').style.display = 'none';
+  } else {
+    document.getElementById('ts-deps-card').style.display = '';
+    document.getElementById('ts-deps-meta').textContent =
+      `${deps.filter(x=>!x.dev).length} prod · ${deps.filter(x=>x.dev).length} dev`;
+    // group by source
+    const bySrc = {};
+    for (const dep of deps) { (bySrc[dep.src] = bySrc[dep.src]||[]).push(dep); }
+    depsEl.innerHTML = Object.entries(bySrc).map(([src, rows]) => `
+      <div style="margin-bottom:16px;">
+        <div style="font-size:12px; color:var(--sub); margin-bottom:4px; text-transform:uppercase; letter-spacing:.05em;">${escapeHtml(src)}</div>
+        <table class="deps-table">
+          <thead><tr><th>Package</th><th>Version</th></tr></thead>
+          <tbody>
+            ${rows.slice(0, 60).map(dep => `
+              <tr>
+                <td><span class="dep-name">${escapeHtml(dep.name)}</span>${dep.dev ? '<span class="dep-dev">dev</span>' : ''}</td>
+                <td><span class="dep-ver">${escapeHtml(dep.ver||'*')}</span></td>
+              </tr>`).join('')}
+            ${rows.length > 60 ? `<tr><td colspan="2" style="color:var(--sub);font-size:12px;">…and ${rows.length-60} more</td></tr>` : ''}
+          </tbody>
+        </table>
+      </div>
+    `).join('');
+  }
+
+  // ---- Build tools ----
+  document.getElementById('ts-buildtools').innerHTML = (d.buildTools || []).map(bt => `
+    <div style="padding:8px 0; border-bottom:1px solid var(--border);">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <strong>${escapeHtml(bt.name)}</strong>
+        <span class="conf">${bt.confidence}%</span>
+      </div>
+      <p class="muted" style="margin:4px 0 0;">${escapeHtml(bt.description)}</p>
     </div>
   `).join('');
 
-  const btEl = document.getElementById('ts-buildtools');
-  btEl.innerHTML = (d.buildTools || []).map(bt => `
-    <div>
-      <strong>${escapeHtml(bt.name)}</strong><br>
-      <span class="conf">${bt.confidence}%</span>
-      <p class="muted">${escapeHtml(bt.description)}</p>
-    </div>
-  `).join('');
-
-  const mfEl = document.getElementById('ts-manifests');
-  mfEl.innerHTML = (d.packageManifests || []).map(m => `
-    <div>
-      <strong>${escapeHtml(m.name)}</strong> <span class="muted">(${escapeHtml(m.path)})</span>
-      <p class="muted">${escapeHtml(m.summary)}</p>
+  // ---- Manifests ----
+  document.getElementById('ts-manifests').innerHTML = (d.packageManifests || []).map(m => `
+    <div style="padding:8px 0; border-bottom:1px solid var(--border);">
+      <strong>${escapeHtml(m.name)}</strong> <span class="muted">${escapeHtml(m.path)}</span>
+      <p class="muted" style="margin:4px 0 0;">${escapeHtml(m.summary)}</p>
     </div>
   `).join('');
 }
