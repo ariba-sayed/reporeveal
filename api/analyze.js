@@ -216,18 +216,18 @@ const FRAMEWORK_RULES = [
   },
   {
     name: 'Django',
-    test: (f, p) => f.has('manage.py') || grepReqs(p, 'requirements', 'django'),
+    test: (f, _p, fc) => f.has('manage.py') || grepReqs(fc, 'requirements', 'django'),
     confidence: (f) => f.has('manage.py') ? 92 : 80,
     description: 'High-level Python web framework. Detected via manage.py and/or requirements.txt.',
-    securityNote: (f, p) => {
-      const v = reqVersion(p, 'requirements', 'django');
+    securityNote: (_f, _p, fc) => {
+      const v = reqVersion(fc, 'requirements', 'django');
       return v && v.startsWith('3.') ? `Django ${v} may be near end-of-life — consider upgrading to 4.x LTS.` : null;
     },
     evidence: (f) => [f.has('manage.py') ? 'manage.py' : null, 'requirements.txt · Django dependency'].filter(Boolean),
   },
   {
     name: 'FastAPI',
-    test: (f, p) => grepReqs(p, 'requirements', 'fastapi'),
+    test: (f, _p, fc) => grepReqs(fc, 'requirements', 'fastapi'),
     confidence: () => 90,
     description: 'Modern, high-performance Python web framework with automatic OpenAPI docs.',
     securityNote: null,
@@ -235,7 +235,7 @@ const FRAMEWORK_RULES = [
   },
   {
     name: 'Flask',
-    test: (f, p) => grepReqs(p, 'requirements', 'flask'),
+    test: (f, _p, fc) => grepReqs(fc, 'requirements', 'flask'),
     confidence: () => 88,
     description: 'Lightweight Python WSGI web framework.',
     securityNote: null,
@@ -340,13 +340,14 @@ function reqVersion(fileContents, file, name) {
 
 function detectFrameworks(fileSet, fileContents) {
   const results = [];
+  const pkg = fileContents['package.json'];
   for (const rule of FRAMEWORK_RULES) {
-    if (rule.test(fileSet, fileContents['package.json'])) {
+    if (rule.test(fileSet, pkg, fileContents)) {
       const conf = typeof rule.confidence === 'function'
-        ? rule.confidence(fileSet, fileContents['package.json'])
+        ? rule.confidence(fileSet, pkg, fileContents)
         : rule.confidence;
       const secNote = typeof rule.securityNote === 'function'
-        ? rule.securityNote(fileSet, fileContents['package.json'])
+        ? rule.securityNote(fileSet, pkg, fileContents)
         : rule.securityNote;
       results.push({
         name: rule.name,
