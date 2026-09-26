@@ -135,24 +135,29 @@ const PRIORITY_FILES = [
   'index.js', 'index.ts', 'main.py', 'app.py', 'manage.py', 'server.js', 'server.ts',
 ];
 
-function pickPreviewFiles(tree, max = 12) {
-  const paths = tree.filter(i => i.type === 'blob').map(i => i.path);
+function pickPreviewFiles(tree, max = 40) {
+  // Only fetch files under 100 KB to avoid huge blobs
+  const blobs = tree.filter(i => i.type === 'blob' && (i.size || 0) < 100_000);
+  const paths = blobs.map(i => i.path);
   const picked = [];
-  // Priority files first
+
+  // 1. Priority config / entry-point files first
   for (const pf of PRIORITY_FILES) {
     if (paths.includes(pf) && !picked.includes(pf)) picked.push(pf);
     if (picked.length >= max) break;
   }
-  // Fill remaining slots with small source files
-  for (const p of paths) {
+
+  // 2. Fill remaining slots — prefer small files, any recognised source extension
+  const sorted = blobs
+    .filter(i => !picked.includes(i.path))
+    .sort((a, b) => (a.size || 0) - (b.size || 0)); // smallest first = faster fetches
+
+  for (const item of sorted) {
     if (picked.length >= max) break;
-    if (!picked.includes(p)) {
-      const e = ext(p);
-      if (LANG_MAP[e] && !['md', 'json', 'yaml', 'yml', 'toml', 'xml'].includes(e)) {
-        picked.push(p);
-      }
-    }
+    const e = ext(item.path);
+    if (LANG_MAP[e]) picked.push(item.path);
   }
+
   return picked;
 }
 
@@ -525,11 +530,16 @@ module.exports = async (req, res) => {
     const fileTree = buildFileTree(flatTree);
     const languages = detectLanguages(flatTree);
 
-    // 3. Fetch key file contents in parallel (capped at 12 files)
+    // 3. Fetch file contents in batches of 10 (avoids hammering GitHub with 40 parallel requests)
     const toFetch = pickPreviewFiles(flatTree);
-    const contentEntries = await Promise.all(
-      toFetch.map(async path => [path, await fetchFileContent(owner, name, path)])
-    );
+    const contentEntries = [];
+    for (let i = 0; i < toFetch.length; i += 10) {
+      const batch = toFetch.slice(i, i + 10);
+      const results = await Promise.all(
+        batch.map(async path => [path, await fetchFileContent(owner, name, path)])
+      );
+      contentEntries.push(...results);
+    }
     const fileContents = Object.fromEntries(contentEntries.filter(([, v]) => v !== null));
 
     // 4. Analysis

@@ -413,10 +413,16 @@ function openFile(path, el){
   document.querySelectorAll('.file').forEach(f => f.classList.remove('active'));
   el.classList.add('active');
   const contents = REPO_DATA && REPO_DATA.fileContents && REPO_DATA.fileContents[path];
-  const content = contents || '// (no preview — binary or unrecognized file)';
-  const lines = content.split('\n').map((l,i) => `<span class="code-line-num">${i+1}</span>${escapeHtml(l)}`).join('\n');
+  if (!contents) {
+    document.getElementById('filePreviewCard').innerHTML = `
+      <div class="section-title"><h2>${escapeHtml(path)}</h2><span class="muted">no preview</span></div>
+      <p class="muted" style="margin-top:8px;">Content not fetched — only up to 40 source files are previewed per analysis to stay within GitHub API limits. Re-analyze to pick up more files, or browse the file on GitHub directly.</p>
+    `;
+    return;
+  }
+  const lines = contents.split('\n').map((l,i) => `<span class="code-line-num">${i+1}</span>${escapeHtml(l)}`).join('\n');
   document.getElementById('filePreviewCard').innerHTML = `
-    <div class="section-title"><h2>${escapeHtml(path)}</h2><span class="muted">${content.split('\n').length} lines · from Bob file-tree subagent</span></div>
+    <div class="section-title"><h2>${escapeHtml(path)}</h2><span class="muted">${contents.split('\n').length} lines</span></div>
     <pre class="code">${lines}</pre>
   `;
 }
