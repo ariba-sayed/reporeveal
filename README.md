@@ -1,49 +1,32 @@
 # RepoReveal
 
-> Paste any public GitHub repo and get a live breakdown of its file tree, tech stack (with confidence scores and evidence lines), language percentages, recent commits, and an AI assistant that answers questions about the code.
+> Paste any public GitHub repo and instantly get a file tree, tech-stack breakdown, language percentages, a newbie onboarding guide, and an AI assistant — powered by IBM Bob 2.0.
 
-![RepoReveal tabs: Overview, Explorer, Tech Stack, Assistant](https://placehold.co/860x420/1b1b1b/8fd14f?text=RepoReveal+%E2%80%94+Overview+%7C+Explorer+%7C+Tech+Stack+%7C+Assistant&font=monospace)
-
----
-
-## How it works
-
-There are two analysis paths:
-
-**Live repos** — type any `owner/repo` and click Analyze. The `/api/analyze` serverless function fetches the repo tree and key file contents via the GitHub API, runs rule-based framework detection, and returns the same JSON schema the frontend uses.
-
-**Bundled demo** — type `local/reporeveal` (or leave it blank). The app loads [`data.json`](data.json), which was produced by IBM Bob IDE running 4 parallel subagents against this repository.
-
-```
-Any public GitHub repo          "local/reporeveal"
-        │                               │
-        ▼                               ▼
-  POST /api/analyze            fetch data.json
-  (GitHub Contents API)        (Bob's pre-analysis)
-        │                               │
-        └─────────────┬─────────────────┘
-                      ▼
-               same JSON schema
-                      │
-                      ▼
-               index.html renders
-         Overview · Explorer · Tech Stack · Assistant
-```
-
-The Assistant tab is pre-seeded with Q&A Bob produced while exploring this repo — matching questions resolve instantly. Novel questions fall through to the live `/api/ask` serverless function (requires `BOB_API_KEY`).
+![RepoReveal](https://placehold.co/860x380/1b1b1b/8fd14f?text=RepoReveal+%E2%80%94+Overview+%7C+Get+Started+%7C+Explorer+%7C+Tech+Stack+%7C+Assistant&font=monospace)
 
 ---
 
-## Installation
-
-No build step or package manager required. Clone and serve:
+## 🚀 Quick Start
 
 ```bash
-git clone https://github.com/your-username/reporeveal.git
+git clone https://github.com/ariba-sayed/reporeveal.git
 cd reporeveal
+
+# Copy environment variables template
+cp .env.example .env
+
+# Edit .env with your actual credentials
+nano .env
 ```
 
-Then pick any static file server:
+Verify `.env` is not tracked:
+
+```bash
+git status            # .env should NOT appear
+git check-ignore -v .env   # should confirm it is ignored
+```
+
+Then serve locally:
 
 ```bash
 npx serve .
@@ -51,73 +34,92 @@ npx serve .
 python3 -m http.server 8080
 ```
 
-Open `http://localhost:8080` in your browser.
+Open `http://localhost:8080`, type any public GitHub repo, click **Analyze**.
 
 ---
 
-## Usage
+## What it does
 
-1. Open the app in your browser.
-2. Type any public GitHub repo (`owner/repo` or a full `github.com/owner/repo` URL) and click **Analyze**.
-3. All five tabs populate with live data:
-
-| Tab | What you see |
+| Tab | What you get |
 |---|---|
-| **Overview** | Stars, forks, description, language bars, recent commits, README excerpt |
-| **Explorer** | Browsable file tree with inline code preview (first 60 lines per file) |
-| **Tech Stack** | Detected frameworks with confidence %, evidence lines, security notes, build tools, package manifests |
-| **Assistant** | Q&A about the repo — pre-seeded answers resolve instantly; new questions go to IBM Bob 2.0 |
+| **Overview** | Stars, forks, language bars, recent commits, README excerpt |
+| **🚀 Get Started** | Exact run commands, key files to read first, architecture flow diagram, contributor checklist |
+| **Explorer** | Full file tree — click any file to preview its content and purpose |
+| **Tech Stack** | Repo health scorecard, detected frameworks with confidence scores, full dependency table |
+| **Assistant** | Ask anything about the repo — powered by IBM Bob 2.0 |
 
-**Quick-start chips:** click `facebook/react`, `vercel/next.js`, `django/django`, or `torvalds/linux` to analyze a well-known repo in one click.
+---
 
-Type `local/reporeveal` to load the bundled Bob-generated analysis from `data.json` (no API call, works offline).
+## How it works
+
+Two analysis paths:
+
+**Live repos** — type any `owner/repo`, click Analyze. The `/api/analyze` serverless function walks the GitHub Contents API, detects frameworks, parses dependencies, and returns structured JSON.
+
+**Bundled demo** — type `local/reporeveal`. Loads [`data.json`](data.json), produced by IBM Bob IDE running 4 parallel subagents against this very repository.
+
+```
+Any public GitHub repo              "local/reporeveal"
+        │                                   │
+        ▼                                   ▼
+  POST /api/analyze               fetch data.json
+  (GitHub Contents API)           (Bob's pre-analysis)
+        │                                   │
+        └──────────────┬────────────────────┘
+                       ▼
+              same JSON schema
+                       ▼
+             index.html renders all tabs
+```
+
+---
+
+## 🔒 Security
+
+This project follows the IBM Hackathon security template guidelines.
+
+**Before every commit:**
+- [ ] Reviewed `git diff` for sensitive data
+- [ ] No hardcoded API keys or passwords in source
+- [ ] `.env` file is **not** in staged changes
+- [ ] All credentials use environment variables
+
+Environment variables used:
+
+| Variable | Where | Description |
+|---|---|---|
+| `BOB_API_KEY` | Vercel env / `.env` | IBM Bob Inference API key |
+| `GITHUB_TOKEN` | Vercel env / `.env` | GitHub PAT for higher rate limits |
+| `BOB_API_URL` | Vercel env / `.env` | Bob endpoint URL (optional override) |
+| `BOB_MODEL` | Vercel env / `.env` | Bob model name (optional override) |
+
+The `.env` file is gitignored. Never commit real credentials — use `.env.example` as the template.
 
 ---
 
 ## Deploy to Vercel
 
-The live Assistant tab requires a Bob API key on the server. All other tabs work from `data.json` alone.
-
-**Option A — Vercel CLI**
-
 ```bash
 npm i -g vercel
-vercel                          # first deploy, follow the prompts
-vercel env add BOB_API_KEY      # paste your Inference key when prompted
+vercel
+vercel env add BOB_API_KEY      # paste your Bob Inference key
+vercel env add GITHUB_TOKEN     # paste your GitHub PAT
 vercel --prod
 ```
 
-**Option B — GitHub + Vercel dashboard**
+Or via the **Vercel dashboard**: New Project → import `ariba-sayed/reporeveal` → Framework: **Other** → add env vars → Deploy.
 
-1. Push this repo to GitHub.
-2. In Vercel: **New Project → import** that repo.
-3. Framework preset: **Other** (static + one serverless function, no build step).
-4. **Settings → Environment Variables** — add:
-
-   | Variable | Required | Description |
-   |---|---|---|
-   | `BOB_API_KEY` | optional | Bob Inference key — needed for live Assistant replies |
-   | `GITHUB_TOKEN` | optional | GitHub PAT — raises analysis rate limit to 5k req/hr |
-   | `BOB_API_URL` | optional | Override the default Bob endpoint |
-   | `BOB_MODEL` | optional | Override `bob-2.0` |
-
-5. Deploy. Visit your `*.vercel.app` URL and click **Analyze**.
-
-> Env var changes require a redeploy to take effect. If you see a 500 about `BOB_API_KEY`, the variable isn't set yet.
-
-**Getting a Bob API key:** log in at [bob.ibm.com](https://bob.ibm.com) → subscription instance → **API key management** → create an **Inference** key. Copy it immediately and copy the endpoint URL shown on the same screen.
+**Getting a Bob API key:** [bob.ibm.com](https://bob.ibm.com) → subscription instance → **API key management** → **New key → Inference**. Copy the key and the endpoint URL on the same screen — set that URL as `BOB_API_URL` if it differs from the default.
 
 ---
 
 ## Rate limits
 
-Each live analysis uses ~13–15 GitHub API calls (one recursive tree fetch + up to 12 file fetches).
-
-| Scenario | Limit |
+| Scenario | GitHub API limit |
 |---|---|
-| No `GITHUB_TOKEN` | 60 requests/hr (unauthenticated) |
-| `GITHUB_TOKEN` set | 5,000 requests/hr |
-| Very large repos (linux, chromium) | Tree fetch may time out — Vercel default timeout is 10s |
+| No `GITHUB_TOKEN` | 60 req/hr (~4 analyses/hr) |
+| `GITHUB_TOKEN` set | 5,000 req/hr |
+| Very large repos | May hit Vercel's 30s function timeout |
 
 ---
 
@@ -125,13 +127,22 @@ Each live analysis uses ~13–15 GitHub API calls (one recursive tree fetch + up
 
 ```
 reporeveal/
-├─ index.html        # full SPA — all five tabs, calls /api/analyze or loads data.json
+├─ index.html      # full SPA — 6 tabs, driven by data.json schema
 ├─ api/
-│  ├─ analyze.js     # live GitHub API analysis → returns data.json-shaped JSON
-│  └─ ask.js         # proxies Assistant questions to IBM Bob 2.0
-├─ data.json         # Bob's pre-generated analysis of this repo (bundled demo)
+│  ├─ analyze.js   # GitHub API → detects stack, deps, tests → returns JSON
+│  └─ ask.js       # proxies Assistant questions to IBM Bob 2.0
+├─ data.json       # Bob's pre-generated analysis of this repo
+├─ .env.example    # template — copy to .env and fill in credentials
+├─ .gitignore      # prevents committing .env and session files
 └─ README.md
 ```
+
+---
+
+## 🆘 Need help?
+
+- Read `SECURITY.md` for credential guidelines
+- Ask in the hackathon Slack / mentor channel
 
 ---
 
