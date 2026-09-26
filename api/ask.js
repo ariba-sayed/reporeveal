@@ -52,17 +52,22 @@ Answer the user's question concisely (2-4 sentences), referencing specific files
 
     if (!upstream.ok) {
       const errText = await upstream.text();
-      res.status(upstream.status).json({ error: `Bob API error: ${errText}` });
+      res.status(upstream.status).json({
+        error: `Bob API returned ${upstream.status} from ${BOB_API_URL} — ${errText}`
+      });
       return;
     }
 
     const data = await upstream.json();
-    // Adjust this line if your account's response shape differs
-    // (OpenAI-compatible APIs return data.choices[0].message.content).
-    const answer = data?.choices?.[0]?.message?.content || data?.answer || JSON.stringify(data);
+    const answer = data?.choices?.[0]?.message?.content
+      || data?.answer
+      || data?.message
+      || data?.text
+      || (typeof data === 'string' ? data : null)
+      || JSON.stringify(data);
 
     res.status(200).json({ answer });
   } catch (err) {
-    res.status(500).json({ error: 'Failed to reach Bob API: ' + err.message });
+    res.status(500).json({ error: `Failed to reach Bob API at ${BOB_API_URL}: ${err.message}` });
   }
 };
