@@ -972,16 +972,18 @@ function populateOnboarding(d){
 
   // Entry point map
   const entries = deriveEntryPoints(d);
-  document.getElementById('ob-entrymap').innerHTML = entries.map(e => `
-    <div class="entry-file" onclick="showTab('explorer'); setTimeout(()=>{ const el=document.querySelector('[data-path=\\'${escapeHtml(e.file).replace(/'/g,"\\'")}\\']; if(el){el.click(); el.scrollIntoView({block:'center'});}},100)">
+  document.getElementById('ob-entrymap').innerHTML = entries.map(e => {
+    const jsPath = e.file.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+    return `
+    <div class="entry-file" onclick="showTab('explorer'); setTimeout(()=>{ const el=document.querySelector('[data-path=\\'${jsPath}\\']; if(el){el.click(); el.scrollIntoView({block:\\'center\\'});}},100)">
       <div style="padding-top:1px;">📄</div>
       <div>
         <div class="ef-role">${escapeHtml(e.role)}</div>
         <div class="ef-name">${escapeHtml(e.file)}</div>
         <div class="ef-desc">${escapeHtml(e.why)}</div>
       </div>
-    </div>
-  `).join('');
+    </div>`;
+  }).join('');
 
   // Architecture flow
   const boxes = deriveFlow(d);
@@ -1238,9 +1240,11 @@ function seedChat(d){
 
   // Quick-ask chips from seeded questions
   const chipsEl = document.getElementById('chat-chips');
-  chipsEl.innerHTML = (d.qa || []).slice(0,3).map(pair =>
-    `<span class="chip" onclick="quickAsk('${escapeHtml(pair.question).replace(/'/g,"\\'")}'">${escapeHtml(pair.question)}</span>`
-  ).join('');
+  chipsEl.innerHTML = (d.qa || []).slice(0,3).map(pair => {
+    // JS-escape first (handle single quotes for the onclick string), then HTML-escape the label
+    const jsEsc = pair.question.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+    return `<span class="chip" onclick="quickAsk('${jsEsc}')">${escapeHtml(pair.question)}</span>`;
+  }).join('');
 }
 
 function addMsg(role, html, tag){
