@@ -118,6 +118,16 @@ pre.code{
   background:rgba(143,209,79,.08); border:1px solid rgba(143,209,79,.25);
   color:var(--accent); padding:4px 10px; border-radius:20px;
 }
+/* Analysis progress banner */
+#analysisBanner{
+  display:none; align-items:center; gap:12px; padding:12px 18px; margin-bottom:16px;
+  border-radius:10px; font-size:13.5px; border:1px solid var(--border);
+  background:var(--panel);
+}
+#analysisBanner.running{ border-color:var(--accent-dim); color:var(--text); }
+#analysisBanner.error{ border-color:var(--danger); color:var(--danger); background:rgba(226,114,91,.07); }
+.spin{width:16px;height:16px;border:2px solid var(--accent-dim);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;flex:none;}
+@keyframes spin{to{transform:rotate(360deg)}}
 footer{border-top:1px solid var(--border); margin-top:40px; padding:26px 20px calc(26px + env(safe-area-inset-bottom,0px)); text-align:center; color:var(--sub); font-size:12.5px;}
 </style>
 </head>
@@ -140,27 +150,33 @@ footer{border-top:1px solid var(--border); margin-top:40px; padding:26px 20px ca
 
 <!-- INPUT TAB -->
 <section id="tab-input">
+  <div id="analysisBanner">
+    <span class="spin" id="bannerSpinner"></span>
+    <span id="bannerText"></span>
+  </div>
   <div class="card">
     <h1>Analyze a GitHub repository</h1>
-    <p class="muted">Paste a repo to get a breakdown of its files, tech stack, and file-by-file explanations.</p>
+    <p class="muted">Paste any public GitHub repo and get a live breakdown of its file tree, tech stack, and an AI assistant — powered by the GitHub API.</p>
     <div style="display:flex; gap:10px; margin:16px 0;">
-      <input type="text" id="repoUrl" placeholder="e.g. github.com/acme/data-insights">
-      <button class="primary" onclick="analyzeRepo()">Analyze</button>
+      <input type="text" id="repoUrl" placeholder="owner/repo or github.com/owner/repo" onkeydown="if(event.key==='Enter')analyzeRepo()">
+      <button class="primary" id="analyzeBtn" onclick="analyzeRepo()">Analyze</button>
     </div>
     <div style="display:flex; gap:8px; flex-wrap:wrap;">
-      <span class="chip" onclick="fillRepo('local/reporeveal')">local/reporeveal</span>
-      <span class="chip" onclick="fillRepo('acme/data-insights')">acme/data-insights</span>
+      <span class="chip" onclick="fillRepo('torvalds/linux')">torvalds/linux</span>
       <span class="chip" onclick="fillRepo('facebook/react')">facebook/react</span>
+      <span class="chip" onclick="fillRepo('vercel/next.js')">vercel/next.js</span>
+      <span class="chip" onclick="fillRepo('django/django')">django/django</span>
+      <span class="chip" onclick="fillRepo('local/reporeveal')">local/reporeveal ↩</span>
     </div>
   </div>
   <div class="grid cols-2" style="margin-top:16px;">
     <div class="card">
       <h2>What you'll get</h2>
-      <p class="muted">A file tree you can browse, a tech-stack breakdown with confidence scores and evidence, and an assistant that answers questions about the code.</p>
+      <p class="muted">A browsable file tree, a tech-stack breakdown with confidence scores and evidence lines, language percentages, recent commits, and an AI assistant that answers questions about the code.</p>
     </div>
     <div class="card">
       <h2>Powered by IBM Bob 2.0</h2>
-      <p class="muted">Bob is the <strong>analysis engine</strong>, not decoration. It ran 4 parallel subagents against this very repository — file tree, tech stack, tests/CI, and document understanding — and wrote the <code>data.json</code> this app now loads.</p>
+      <p class="muted">Bob ran 4 parallel subagents against this very repository to produce the built-in <code>data.json</code>. For any <em>other</em> repo you type, the live <code>/api/analyze</code> function fetches from the GitHub API in real time.</p>
     </div>
   </div>
 </section>
@@ -273,31 +289,66 @@ function fillRepo(name){ document.getElementById('repoUrl').value = name; }
 function escapeHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
 // ---- global state ----
-let REPO_DATA = null;       // populated from data.json after analyze
+let REPO_DATA = null;
 let currentRepoName = null;
 
-// ---- analyze: load data.json (Bob's output) ----
+// ---- banner helpers ----
+function setBanner(state, text){
+  const el = document.getElementById('analysisBanner');
+  const spinner = document.getElementById('bannerSpinner');
+  el.className = state;                    // 'running' | 'error' | ''
+  el.style.display = state ? 'flex' : 'none';
+  document.getElementById('bannerText').textContent = text;
+  spinner.style.display = state === 'running' ? 'block' : 'none';
+}
+
+// ---- analyze: call /api/analyze for real repos; fall back to data.json for 'local/reporeveal' ----
 async function analyzeRepo(){
-  const val = document.getElementById('repoUrl').value.trim() || 'local/reporeveal';
-  currentRepoName = val;
-  document.getElementById('repoPill').textContent = currentRepoName + ' · analyzing…';
+  const raw = document.getElementById('repoUrl').value.trim() || 'local/reporeveal';
+  currentRepoName = raw;
+  const btn = document.getElementById('analyzeBtn');
+  btn.disabled = true;
+  btn.textContent = 'Analyzing…';
+  setBanner('running', 'Fetching ' + raw + ' from GitHub API…');
+  document.getElementById('repoPill').textContent = raw + ' · analyzing…';
+
+  // "local/reporeveal" or empty → load bundled data.json (Bob's pre-analysis)
+  const isLocal = raw === 'local/reporeveal' || raw === 'reporeveal';
 
   try {
-    const resp = await fetch('data.json?v=' + Date.now());
-    if (!resp.ok) throw new Error('HTTP ' + resp.status);
-    REPO_DATA = await resp.json();
-  } catch(e) {
-    document.getElementById('repoPill').textContent = currentRepoName + ' · error loading data.json';
-    alert('Could not load data.json: ' + e.message);
-    return;
-  }
+    let data;
+    if (isLocal) {
+      setBanner('running', 'Loading bundled Bob analysis (data.json)…');
+      const resp = await fetch('data.json?v=' + Date.now());
+      if (!resp.ok) throw new Error('Could not load data.json (HTTP ' + resp.status + ')');
+      data = await resp.json();
+    } else {
+      setBanner('running', 'Calling GitHub API for ' + raw + '…');
+      const resp = await fetch('/api/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ repo: raw }),
+      });
+      const json = await resp.json();
+      if (!resp.ok) throw new Error(json.error || 'HTTP ' + resp.status);
+      data = json;
+    }
 
-  document.getElementById('repoPill').textContent = (REPO_DATA.repo.fullName || currentRepoName) + ' · analyzed by Bob';
-  populateOverview(REPO_DATA);
-  populateExplorer(REPO_DATA);
-  populateTechStack(REPO_DATA);
-  seedChat(REPO_DATA);
-  showTab('overview');
+    REPO_DATA = data;
+    setBanner('', '');
+    document.getElementById('repoPill').textContent = (REPO_DATA.repo.fullName || raw) + ' · analyzed';
+    populateOverview(REPO_DATA);
+    populateExplorer(REPO_DATA);
+    populateTechStack(REPO_DATA);
+    seedChat(REPO_DATA);
+    showTab('overview');
+  } catch(e) {
+    setBanner('error', e.message);
+    document.getElementById('repoPill').textContent = raw + ' · failed';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Analyze';
+  }
 }
 
 // ---- Overview ----
@@ -482,13 +533,15 @@ async function sendChat(){
   document.getElementById('chat').scrollTop = document.getElementById('chat').scrollHeight;
 }
 
-// ---- auto-load data.json on page load to demo immediately ----
+// ---- auto-load bundled data.json on page load so the demo is ready immediately ----
 (async function autoLoad(){
   try {
     const resp = await fetch('data.json');
     if (!resp.ok) return;
     REPO_DATA = await resp.json();
-    document.getElementById('repoUrl').value = REPO_DATA.repo.fullName || 'local/reporeveal';
+    // Only pre-fill the input if the user hasn't typed anything yet
+    const input = document.getElementById('repoUrl');
+    if (!input.value) input.value = 'local/reporeveal';
   } catch(_){}
 })();
 </script>

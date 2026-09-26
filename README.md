@@ -1,6 +1,6 @@
 # RepoReveal
 
-> Paste a GitHub repo URL and get an instant breakdown of its file tree, tech stack (with confidence scores and evidence lines), and an AI assistant that answers questions about the code — all powered by IBM Bob IDE.
+> Paste any public GitHub repo and get a live breakdown of its file tree, tech stack (with confidence scores and evidence lines), language percentages, recent commits, and an AI assistant that answers questions about the code.
 
 ![RepoReveal tabs: Overview, Explorer, Tech Stack, Assistant](https://placehold.co/860x420/1b1b1b/8fd14f?text=RepoReveal+%E2%80%94+Overview+%7C+Explorer+%7C+Tech+Stack+%7C+Assistant&font=monospace)
 
@@ -8,23 +8,29 @@
 
 ## How it works
 
-Bob IDE runs 4 parallel subagents against a target repository and writes the results to [`data.json`](data.json). The app loads that file and renders every tab from it — Bob is the analysis engine, not a decoration.
+There are two analysis paths:
+
+**Live repos** — type any `owner/repo` and click Analyze. The `/api/analyze` serverless function fetches the repo tree and key file contents via the GitHub API, runs rule-based framework detection, and returns the same JSON schema the frontend uses.
+
+**Bundled demo** — type `local/reporeveal` (or leave it blank). The app loads [`data.json`](data.json), which was produced by IBM Bob IDE running 4 parallel subagents against this repository.
 
 ```
-Bob IDE (4 parallel subagents)
-  ├─ file-tree          →  fileTree, fileContents, language breakdown
-  ├─ tech-stack         →  frameworks[], confidence scores, evidence lines
-  ├─ tests/CI           →  test files, CI config, deployment setup
-  └─ doc-understanding  →  repo summary, README excerpt, seeded Q&A pairs
-          │
-          ▼
-      data.json   ←  Bob's output (swap to re-analyze any repo)
-          │
-          ▼
-      index.html  ←  reads data.json, populates every tab
+Any public GitHub repo          "local/reporeveal"
+        │                               │
+        ▼                               ▼
+  POST /api/analyze            fetch data.json
+  (GitHub Contents API)        (Bob's pre-analysis)
+        │                               │
+        └─────────────┬─────────────────┘
+                      ▼
+               same JSON schema
+                      │
+                      ▼
+               index.html renders
+         Overview · Explorer · Tech Stack · Assistant
 ```
 
-The Assistant tab is pre-seeded with Q&A Bob produced while exploring the repo — matching questions resolve instantly with no inference call. Novel questions fall through to a live `/api/ask` serverless function.
+The Assistant tab is pre-seeded with Q&A Bob produced while exploring this repo — matching questions resolve instantly. Novel questions fall through to the live `/api/ask` serverless function (requires `BOB_API_KEY`).
 
 ---
 
@@ -52,19 +58,19 @@ Open `http://localhost:8080` in your browser.
 ## Usage
 
 1. Open the app in your browser.
-2. Type a repo name in the input field (e.g. `local/reporeveal`) and click **Analyze**.
-3. The app fetches `data.json` and populates all five tabs:
+2. Type any public GitHub repo (`owner/repo` or a full `github.com/owner/repo` URL) and click **Analyze**.
+3. All five tabs populate with live data:
 
 | Tab | What you see |
 |---|---|
-| **Overview** | Repo description, language bars, commit log, README excerpt |
-| **Explorer** | Browsable file tree with inline code preview |
-| **Tech Stack** | Detected frameworks, build tools, package manifests — with confidence % and evidence lines |
-| **Assistant** | Pre-seeded Q&A from Bob's analysis; live questions proxied to IBM Bob 2.0 |
+| **Overview** | Stars, forks, description, language bars, recent commits, README excerpt |
+| **Explorer** | Browsable file tree with inline code preview (first 60 lines per file) |
+| **Tech Stack** | Detected frameworks with confidence %, evidence lines, security notes, build tools, package manifests |
+| **Assistant** | Q&A about the repo — pre-seeded answers resolve instantly; new questions go to IBM Bob 2.0 |
 
-### Re-analyzing a different repo
+**Quick-start chips:** click `facebook/react`, `vercel/next.js`, `django/django`, or `torvalds/linux` to analyze a well-known repo in one click.
 
-`data.json` is the only thing that changes between repos. Point Bob at any repository, run the 4-subagent pattern, write the output as `data.json`, and reload — all tabs update automatically.
+Type `local/reporeveal` to load the bundled Bob-generated analysis from `data.json` (no API call, works offline).
 
 ---
 
@@ -90,7 +96,8 @@ vercel --prod
 
    | Variable | Required | Description |
    |---|---|---|
-   | `BOB_API_KEY` | ✅ | Your Bob Inference API key |
+   | `BOB_API_KEY` | optional | Bob Inference key — needed for live Assistant replies |
+   | `GITHUB_TOKEN` | optional | GitHub PAT — raises analysis rate limit to 5k req/hr |
    | `BOB_API_URL` | optional | Override the default Bob endpoint |
    | `BOB_MODEL` | optional | Override `bob-2.0` |
 
@@ -102,13 +109,27 @@ vercel --prod
 
 ---
 
+## Rate limits
+
+Each live analysis uses ~13–15 GitHub API calls (one recursive tree fetch + up to 12 file fetches).
+
+| Scenario | Limit |
+|---|---|
+| No `GITHUB_TOKEN` | 60 requests/hr (unauthenticated) |
+| `GITHUB_TOKEN` set | 5,000 requests/hr |
+| Very large repos (linux, chromium) | Tree fetch may time out — Vercel default timeout is 10s |
+
+---
+
 ## File structure
 
 ```
 reporeveal/
-├─ index.html   # full SPA — all five tabs, reads from data.json
-├─ ask.js       # Vercel serverless function — proxies live questions to IBM Bob 2.0
-├─ data.json    # Bob's analysis output — the single source of truth for all tab content
+├─ index.html        # full SPA — all five tabs, calls /api/analyze or loads data.json
+├─ api/
+│  ├─ analyze.js     # live GitHub API analysis → returns data.json-shaped JSON
+│  └─ ask.js         # proxies Assistant questions to IBM Bob 2.0
+├─ data.json         # Bob's pre-generated analysis of this repo (bundled demo)
 └─ README.md
 ```
 
