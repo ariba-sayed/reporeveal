@@ -409,20 +409,230 @@ function toggleFolder(el){
   if (ul) ul.style.display = ul.style.display === 'none' ? 'block' : 'none';
 }
 
+// ---- file purpose descriptions from name/path alone ----
+function describeFile(path) {
+  const name = path.split('/').pop().toLowerCase();
+  const e = path.split('.').pop().toLowerCase();
+
+  // exact filename matches
+  const exact = {
+    'package.json':        'Node.js package manifest — lists dependencies, scripts, and project metadata.',
+    'package-lock.json':   'Auto-generated lockfile that pins exact dependency versions for reproducible installs.',
+    'yarn.lock':           'Yarn lockfile — pins exact dependency versions.',
+    'pnpm-lock.yaml':      'pnpm lockfile — pins exact dependency versions.',
+    'requirements.txt':    'Python dependency list — install with `pip install -r requirements.txt`.',
+    'requirements-dev.txt':'Python dev dependencies — install with `pip install -r requirements-dev.txt`.',
+    'pipfile':             'Pipenv dependency manifest.',
+    'pipfile.lock':        'Pipenv lockfile — pins exact Python dependency versions.',
+    'pyproject.toml':      'Python project config (PEP 518) — may define dependencies, build system, and tool settings.',
+    'setup.py':            'Legacy Python package setup script — defines package metadata and install requirements.',
+    'setup.cfg':           'Python package configuration file used alongside setup.py.',
+    'cargo.toml':          'Rust package manifest — defines crate name, version, and dependencies.',
+    'cargo.lock':          'Rust lockfile — pins exact crate versions for reproducible builds.',
+    'go.mod':              'Go module definition — declares module path and dependency requirements.',
+    'go.sum':              'Go checksum database — verifies integrity of downloaded module versions.',
+    'pom.xml':             'Maven build descriptor for Java/JVM projects — defines dependencies and build lifecycle.',
+    'build.gradle':        'Gradle build script — defines project structure, dependencies, and tasks.',
+    'build.gradle.kts':    'Gradle build script (Kotlin DSL).',
+    'settings.gradle':     'Gradle settings file — declares the project name and included subprojects.',
+    'gemfile':             'Ruby dependency manifest — lists gems required by the project.',
+    'gemfile.lock':        'Bundler lockfile — pins exact Ruby gem versions.',
+    'composer.json':       'PHP Composer manifest — lists PHP package dependencies.',
+    'dockerfile':          'Docker image definition — describes how to build and run the app in a container.',
+    'docker-compose.yml':  'Docker Compose config — defines multi-container services, networks, and volumes.',
+    'docker-compose.yaml': 'Docker Compose config — defines multi-container services, networks, and volumes.',
+    '.dockerignore':       'Lists files excluded from the Docker build context.',
+    'makefile':            'Make build rules — defines targets for building, testing, and running the project.',
+    'rakefile':            'Ruby Rake build script.',
+    'justfile':            'Just command runner — defines project-specific shortcuts and tasks.',
+    'readme.md':           'Project README — overview, install instructions, and usage guide.',
+    'readme.rst':          'Project README in reStructuredText format.',
+    'changelog.md':        'Release history — documents changes made in each version.',
+    'contributing.md':     'Contributor guide — explains how to submit issues and pull requests.',
+    'license':             'Software license — defines the legal terms for using and distributing this code.',
+    'license.md':          'Software license (Markdown).',
+    'license.txt':         'Software license (plain text).',
+    '.gitignore':          'Tells Git which files and directories to exclude from version control.',
+    '.gitattributes':      'Git attributes — controls line endings, diff settings, and merge strategies per file type.',
+    '.editorconfig':       'Editor config — enforces consistent indentation, line endings, and encoding across editors.',
+    '.env.example':        'Example environment variable file — copy to `.env` and fill in real values.',
+    '.env.sample':         'Sample environment variable file — copy to `.env` and fill in real values.',
+    'tsconfig.json':       'TypeScript compiler config — sets strict mode, module resolution, and output options.',
+    'jsconfig.json':       'JavaScript project config for editors — enables path aliases and type checking.',
+    '.eslintrc.json':      'ESLint config — defines linting rules for JavaScript/TypeScript.',
+    '.eslintrc.js':        'ESLint config (JavaScript format).',
+    '.eslintrc.yml':       'ESLint config (YAML format).',
+    '.eslintignore':       'Lists files ESLint should skip.',
+    '.prettierrc':         'Prettier config — defines code formatting rules (indentation, quotes, semicolons).',
+    '.prettierrc.json':    'Prettier config (JSON format).',
+    '.prettierignore':     'Lists files Prettier should skip when formatting.',
+    'babel.config.js':     'Babel config — defines JavaScript transpilation presets and plugins.',
+    'babel.config.json':   'Babel config (JSON format).',
+    '.babelrc':            'Babel config (legacy format).',
+    'webpack.config.js':   'Webpack bundler config — defines entry points, loaders, and output settings.',
+    'vite.config.js':      'Vite build tool config — sets up dev server, plugins, and build options.',
+    'vite.config.ts':      'Vite config (TypeScript).',
+    'rollup.config.js':    'Rollup bundler config — defines entry, output format, and plugins.',
+    'jest.config.js':      'Jest test runner config — sets up test environment, coverage, and transform rules.',
+    'jest.config.ts':      'Jest config (TypeScript).',
+    'vitest.config.js':    'Vitest test runner config.',
+    'vitest.config.ts':    'Vitest config (TypeScript).',
+    '.mocharc.yml':        'Mocha test runner config.',
+    'playwright.config.ts':'Playwright end-to-end test config.',
+    'cypress.config.js':   'Cypress end-to-end test config.',
+    'tailwind.config.js':  'Tailwind CSS config — defines theme, content paths, and plugins.',
+    'tailwind.config.ts':  'Tailwind CSS config (TypeScript).',
+    'postcss.config.js':   'PostCSS config — defines CSS transformation plugins.',
+    'next.config.js':      'Next.js framework config — sets routing, image domains, and build options.',
+    'next.config.ts':      'Next.js config (TypeScript).',
+    'nuxt.config.ts':      'Nuxt.js framework config.',
+    'svelte.config.js':    'SvelteKit config — sets adapter, preprocessors, and build options.',
+    'astro.config.mjs':    'Astro framework config.',
+    'vue.config.js':       'Vue CLI config — sets dev server, webpack overrides, and build options.',
+    'vercel.json':         'Vercel deployment config — defines routes, headers, rewrites, and function settings.',
+    'netlify.toml':        '.Netlify deployment config — defines build command, publish dir, and redirects.',
+    '.travis.yml':         'Travis CI pipeline config — defines build, test, and deploy stages.',
+    '.circleci/config.yml':'CircleCI pipeline config.',
+    'appveyor.yml':        'AppVeyor CI config for Windows builds.',
+    'sonar-project.properties': 'SonarQube code quality analysis config.',
+    'codecov.yml':         'Codecov config — defines coverage targets and reporting rules.',
+    'manage.py':           'Django management script — use to run the dev server, migrations, and other commands.',
+    'wsgi.py':             'WSGI entry point — used by production servers (Gunicorn, uWSGI) to serve the Django app.',
+    'asgi.py':             'ASGI entry point — used by async servers (Uvicorn, Daphne) to serve the Django app.',
+    'settings.py':         'Django settings module — database, installed apps, middleware, and secret key config.',
+    'urls.py':             'Django URL router — maps URL patterns to view functions.',
+    'models.py':           'Django models — defines database table schemas as Python classes.',
+    'views.py':            'Django views — handles HTTP requests and returns responses.',
+    'serializers.py':      'Django REST Framework serializers — converts models to/from JSON.',
+    'admin.py':            'Django admin registration — exposes models in the /admin interface.',
+    'apps.py':             'Django app config — defines app name and startup hooks.',
+    'conftest.py':         'Pytest fixtures and shared test configuration.',
+    'main.py':             'Main Python entry point — application startup.',
+    'app.py':              'Flask/FastAPI application entry point.',
+    '__init__.py':         'Python package marker — makes the directory importable as a module.',
+    'index.html':          'Main HTML file — application shell and entry point for the browser.',
+    'index.js':            'JavaScript entry point — bootstraps the application.',
+    'index.ts':            'TypeScript entry point — bootstraps the application.',
+    'main.js':             'Application entry point (JavaScript).',
+    'main.ts':             'Application entry point (TypeScript).',
+    'app.js':              'Express/Node.js application setup — registers middleware and routes.',
+    'app.ts':              'Express/Node.js application setup (TypeScript).',
+    'server.js':           'HTTP server entry point — starts the web server on a configured port.',
+    'server.ts':           'HTTP server entry point (TypeScript).',
+  };
+
+  if (exact[name]) return exact[name];
+
+  // path-pattern matches
+  if (path.includes('.github/workflows/')) return 'GitHub Actions workflow — defines automated CI/CD pipeline steps.';
+  if (path.includes('.github/')) return 'GitHub configuration file — issue templates, PR templates, or repo settings.';
+  if (name.startsWith('test_') || name.endsWith('.test.js') || name.endsWith('.test.ts') ||
+      name.endsWith('.spec.js') || name.endsWith('.spec.ts') || name.endsWith('_test.py') ||
+      name.endsWith('_test.go') || path.includes('__tests__/') || path.includes('/test/') || path.includes('/tests/'))
+    return 'Test file — contains automated tests for the module it mirrors.';
+  if (path.includes('/migrations/')) return 'Database migration — tracks a schema change to apply or roll back.';
+  if (path.includes('/components/')) return 'UI component — a reusable piece of the user interface.';
+  if (path.includes('/hooks/'))      return 'React hook — encapsulates reusable stateful logic.';
+  if (path.includes('/pages/') || path.includes('/routes/')) return 'Page or route handler — defines a URL endpoint or rendered page.';
+  if (path.includes('/middleware/')) return 'Middleware — intercepts requests/responses to add cross-cutting logic.';
+  if (path.includes('/utils/') || path.includes('/helpers/') || path.includes('/lib/'))
+    return 'Utility/helper module — shared functions used across the codebase.';
+  if (path.includes('/models/'))     return 'Data model — defines the structure and behaviour of a domain entity.';
+  if (path.includes('/services/'))   return 'Service layer — encapsulates business logic or external API calls.';
+  if (path.includes('/store/') || path.includes('/redux/') || path.includes('/state/'))
+    return 'State management — defines application-wide state, actions, or reducers.';
+  if (path.includes('/styles/') || path.includes('/css/') || path.includes('/scss/'))
+    return 'Stylesheet — defines visual styling for a component or page.';
+  if (path.includes('/assets/') || path.includes('/static/') || path.includes('/public/'))
+    return 'Static asset — served directly to the browser (image, font, icon, etc.).';
+  if (path.includes('/docs/') || path.includes('/documentation/')) return 'Documentation file.';
+  if (path.includes('/scripts/'))    return 'Utility script — typically run manually or in CI for build/deploy tasks.';
+  if (path.includes('/config/') || name.includes('config'))
+    return 'Configuration file — sets options for a tool, service, or environment.';
+  if (path.includes('/api/') || path.includes('/endpoints/'))
+    return 'API handler — defines one or more HTTP endpoints.';
+  if (path.includes('/types/') || name === 'types.ts' || name === 'types.d.ts')
+    return 'TypeScript type definitions — shared interfaces and types used across the project.';
+
+  // extension fallbacks
+  const extDesc = {
+    js:   'JavaScript source file.',
+    ts:   'TypeScript source file.',
+    jsx:  'React component (JavaScript + JSX).',
+    tsx:  'React component (TypeScript + JSX).',
+    vue:  'Vue single-file component — contains template, script, and style in one file.',
+    svelte:'Svelte component — compiled to vanilla JS at build time.',
+    py:   'Python source file.',
+    rb:   'Ruby source file.',
+    go:   'Go source file.',
+    rs:   'Rust source file.',
+    java: 'Java source file.',
+    kt:   'Kotlin source file.',
+    swift:'Swift source file.',
+    cs:   'C# source file.',
+    cpp:  'C++ source file.',
+    c:    'C source file.',
+    h:    'C/C++ header file — declares interfaces and types.',
+    php:  'PHP source file.',
+    sh:   'Shell script.',
+    bash: 'Bash script.',
+    zsh:  'Zsh script.',
+    sql:  'SQL file — database queries or schema definitions.',
+    html: 'HTML file.',
+    css:  'CSS stylesheet.',
+    scss: 'Sass stylesheet — compiled to CSS at build time.',
+    sass: 'Sass stylesheet (indented syntax).',
+    less: 'Less stylesheet — compiled to CSS at build time.',
+    md:   'Markdown document.',
+    rst:  'reStructuredText document.',
+    json: 'JSON data or configuration file.',
+    yaml: 'YAML configuration or data file.',
+    yml:  'YAML configuration or data file.',
+    toml: 'TOML configuration file.',
+    xml:  'XML data or configuration file.',
+    graphql: 'GraphQL schema or query definitions.',
+    gql:  'GraphQL schema or query definitions.',
+    proto:'Protocol Buffers schema — defines serialization format for gRPC services.',
+    tf:   'Terraform infrastructure-as-code file.',
+    hcl:  'HashiCorp Configuration Language — used for Terraform and other tools.',
+    env:  'Environment variable file — set key=value pairs for runtime config.',
+    lock: 'Lockfile — pins dependency versions for reproducible builds.',
+    log:  'Log file.',
+    txt:  'Plain text file.',
+    csv:  'CSV data file.',
+    svg:  'SVG vector image.',
+    png:  'PNG image.',
+    jpg:  'JPEG image.',
+    gif:  'GIF image.',
+    ico:  'Icon file.',
+    woff: 'Web font (WOFF format).',
+    woff2:'Web font (WOFF2 format).',
+    ttf:  'TrueType font file.',
+  };
+  return extDesc[e] || 'File — select to view contents if available.';
+}
+
 function openFile(path, el){
   document.querySelectorAll('.file').forEach(f => f.classList.remove('active'));
   el.classList.add('active');
   const contents = REPO_DATA && REPO_DATA.fileContents && REPO_DATA.fileContents[path];
+  const desc = describeFile(path);
   if (!contents) {
+    const repoFull = REPO_DATA && REPO_DATA.repo && REPO_DATA.repo.fullName;
+    const ghLink = repoFull && !repoFull.startsWith('local/')
+      ? `<a href="https://github.com/${escapeHtml(repoFull)}/blob/HEAD/${encodeURIComponent(path)}" target="_blank" style="color:var(--accent);">View on GitHub ↗</a>`
+      : '';
     document.getElementById('filePreviewCard').innerHTML = `
       <div class="section-title"><h2>${escapeHtml(path)}</h2><span class="muted">no preview</span></div>
-      <p class="muted" style="margin-top:8px;">Content not fetched — only up to 40 source files are previewed per analysis to stay within GitHub API limits. Re-analyze to pick up more files, or browse the file on GitHub directly.</p>
+      <p style="margin-top:10px; font-size:14px;">${escapeHtml(desc)}</p>
+      ${ghLink ? `<p style="margin-top:8px; font-size:13px;">${ghLink}</p>` : ''}
     `;
     return;
   }
   const lines = contents.split('\n').map((l,i) => `<span class="code-line-num">${i+1}</span>${escapeHtml(l)}`).join('\n');
   document.getElementById('filePreviewCard').innerHTML = `
     <div class="section-title"><h2>${escapeHtml(path)}</h2><span class="muted">${contents.split('\n').length} lines</span></div>
+    <p class="muted" style="margin-bottom:10px;">${escapeHtml(desc)}</p>
     <pre class="code">${lines}</pre>
   `;
 }
