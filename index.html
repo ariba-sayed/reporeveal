@@ -127,6 +127,32 @@ pre.code{
 .dep-dev{font-size:10px; color:var(--sub); border:1px solid var(--border); border-radius:8px; padding:1px 6px; margin-left:4px;}
 /* Lang strip */
 .lang-strip{display:flex; height:8px; border-radius:4px; overflow:hidden; margin:10px 0 14px;}
+/* Onboarding / Get Started */
+.step-list{display:flex; flex-direction:column; gap:0;}
+.step{display:flex; gap:16px; padding:16px 0; border-bottom:1px solid var(--border); align-items:flex-start;}
+.step:last-child{border-bottom:none;}
+.step-num{width:28px; height:28px; border-radius:50%; background:var(--accent); color:#0e1a05;
+  font-weight:700; font-size:13px; display:flex; align-items:center; justify-content:center; flex:none; margin-top:1px;}
+.step-body{flex:1;}
+.step-title{font-weight:600; font-size:14px; margin-bottom:4px;}
+.step-desc{font-size:13.5px; color:var(--sub); line-height:1.6;}
+.cmd-block{background:#0e0e0e; border:1px solid var(--border); border-radius:8px;
+  padding:10px 14px; font-family:var(--mono); font-size:13px; margin-top:8px; white-space:pre-wrap; word-break:break-all;}
+.cmd-label{font-size:11px; color:var(--sub); text-transform:uppercase; letter-spacing:.05em; margin-bottom:3px;}
+.entry-map{display:flex; flex-direction:column; gap:8px; margin-top:10px;}
+.entry-file{display:flex; gap:12px; align-items:flex-start; padding:10px 12px;
+  background:var(--panel2); border:1px solid var(--border); border-radius:8px; cursor:pointer;}
+.entry-file:hover{border-color:var(--accent-dim);}
+.entry-file .ef-name{font-family:var(--mono); font-size:12.5px; color:var(--accent); white-space:nowrap;}
+.entry-file .ef-role{font-size:12px; font-weight:600; color:var(--text); margin-bottom:2px;}
+.entry-file .ef-desc{font-size:12px; color:var(--sub);}
+.flow{display:flex; align-items:center; gap:0; flex-wrap:wrap; margin-top:12px;}
+.flow-box{background:var(--panel2); border:1px solid var(--border); border-radius:8px;
+  padding:10px 14px; font-size:13px; text-align:center; min-width:110px;}
+.flow-box .fb-label{font-size:10px; color:var(--sub); text-transform:uppercase; letter-spacing:.04em; margin-bottom:3px;}
+.flow-box .fb-name{font-weight:600;}
+.flow-arrow{color:var(--sub); font-size:18px; padding:0 8px; flex:none;}
+.flow-box.highlight{border-color:var(--accent-dim); background:rgba(143,209,79,.06);}
 /* Assistant */
 .chat{display:flex; flex-direction:column; gap:14px; max-height:480px; overflow-y:auto; padding:4px 2px;}
 .msg{max-width:80%; padding:11px 14px; border-radius:12px; font-size:14px; line-height:1.5;}
@@ -165,6 +191,7 @@ footer{border-top:1px solid var(--border); margin-top:40px; padding:26px 20px ca
   <nav id="tabs">
     <button data-tab="input" class="active">Home / Input</button>
     <button data-tab="overview">Overview</button>
+    <button data-tab="onboard">🚀 Get Started</button>
     <button data-tab="explorer">Explorer</button>
     <button data-tab="techstack">Tech Stack</button>
     <button data-tab="assistant">Assistant</button>
@@ -250,6 +277,43 @@ footer{border-top:1px solid var(--border); margin-top:40px; padding:26px 20px ca
     <p class="muted" style="margin-bottom:10px;" id="ov-readme-source">Rendered from main/README.md</p>
     <pre class="code" id="ov-readme-content">Loading…</pre>
   </div>
+</section>
+
+<!-- GET STARTED TAB -->
+<section id="tab-onboard" class="hidden">
+
+  <!-- TL;DR card -->
+  <div class="card" id="ob-tldr">
+    <h1 id="ob-title">Getting Started</h1>
+    <p class="muted" id="ob-subtitle">Analyze a repo first to see its onboarding guide.</p>
+  </div>
+
+  <!-- Run commands -->
+  <div class="card" style="margin-top:16px;" id="ob-run-card">
+    <h2>How to run this project</h2>
+    <div id="ob-run"></div>
+  </div>
+
+  <!-- Entry points -->
+  <div class="card" style="margin-top:16px;">
+    <h2>Key files to read first</h2>
+    <p class="muted" style="margin-bottom:0;">These are the most important files for understanding the codebase — click any to preview.</p>
+    <div class="entry-map" id="ob-entrymap"></div>
+  </div>
+
+  <!-- Architecture flow -->
+  <div class="card" style="margin-top:16px;">
+    <h2>How requests flow</h2>
+    <p class="muted" style="margin-bottom:4px;">A simplified end-to-end view based on the detected stack.</p>
+    <div class="flow" id="ob-flow"></div>
+  </div>
+
+  <!-- Checklist -->
+  <div class="card" style="margin-top:16px;">
+    <h2>New contributor checklist</h2>
+    <div class="step-list" id="ob-steps"></div>
+  </div>
+
 </section>
 
 <!-- EXPLORER TAB -->
@@ -386,6 +450,7 @@ async function analyzeRepo(){
     setBanner('', '');
     document.getElementById('repoPill').textContent = (REPO_DATA.repo.fullName || raw) + ' · analyzed';
     populateOverview(REPO_DATA);
+    populateOnboarding(REPO_DATA);
     populateExplorer(REPO_DATA);
     populateTechStack(REPO_DATA);
     seedChat(REPO_DATA);
@@ -683,6 +748,262 @@ function openFile(path, el){
     <p class="muted" style="margin-bottom:10px;">${escapeHtml(desc)}</p>
     <pre class="code">${lines}</pre>
   `;
+}
+
+// ---- Get Started / Onboarding ----
+
+function deriveRunCommands(d){
+  const fc = d.fileContents || {};
+  const fw = d.frameworks || [];
+  const cmds = [];
+  const hasPkg = !!fc['package.json'];
+  const hasReqs = !!fc['requirements.txt'];
+  const hasGo = !!fc['go.mod'];
+  const hasCargo = !!fc['Cargo.toml'];
+  const hasMakefile = !!(d.fileTree||{})['Makefile'];
+
+  if (hasPkg) {
+    try {
+      const p = JSON.parse(fc['package.json']);
+      const scripts = p.scripts || {};
+      cmds.push({ label: 'Install dependencies', cmd: 'npm install' });
+      if (scripts.dev)   cmds.push({ label: 'Start dev server',  cmd: 'npm run dev' });
+      else if (scripts.start) cmds.push({ label: 'Start server', cmd: 'npm start' });
+      if (scripts.build) cmds.push({ label: 'Build for production', cmd: 'npm run build' });
+      if (scripts.test)  cmds.push({ label: 'Run tests', cmd: 'npm test' });
+      if (scripts.lint)  cmds.push({ label: 'Lint code', cmd: 'npm run lint' });
+    } catch{}
+  }
+  if (hasReqs) {
+    cmds.push({ label: 'Install Python dependencies', cmd: 'pip install -r requirements.txt' });
+    if (fw.some(f => f.name === 'Django'))
+      cmds.push({ label: 'Run Django dev server', cmd: 'python manage.py migrate\npython manage.py runserver' });
+    else if (fw.some(f => f.name === 'FastAPI'))
+      cmds.push({ label: 'Start FastAPI server', cmd: 'uvicorn main:app --reload' });
+    else if (fw.some(f => f.name === 'Flask'))
+      cmds.push({ label: 'Start Flask server', cmd: 'flask run' });
+    if (d.tests && d.tests.hasTests)
+      cmds.push({ label: 'Run tests', cmd: 'pytest' });
+  }
+  if (hasGo) {
+    cmds.push({ label: 'Download dependencies', cmd: 'go mod download' });
+    cmds.push({ label: 'Build', cmd: 'go build ./...' });
+    cmds.push({ label: 'Run tests', cmd: 'go test ./...' });
+  }
+  if (hasCargo) {
+    cmds.push({ label: 'Build', cmd: 'cargo build' });
+    cmds.push({ label: 'Run', cmd: 'cargo run' });
+    cmds.push({ label: 'Run tests', cmd: 'cargo test' });
+  }
+  if (cmds.length === 0 && hasMakefile)
+    cmds.push({ label: 'Build / run via Makefile', cmd: 'make help' });
+  if (cmds.length === 0)
+    cmds.push({ label: 'No package manifest detected', cmd: '# Check the README for setup instructions' });
+  return cmds;
+}
+
+function deriveEntryPoints(d){
+  const fc = d.fileContents || {};
+  const ft = d.fileTree || {};
+  const fw = d.frameworks || [];
+  const allFiles = new Set();
+  function walk(node, prefix=''){
+    for(const k in node){
+      const full = prefix ? prefix+'/'+k : k;
+      if(typeof node[k]==='object') walk(node[k], full);
+      else allFiles.add(full);
+    }
+  }
+  walk(ft);
+
+  const ENTRY_ROLES = [
+    { file:'README.md',          role:'Start here',        why:'Project overview, setup instructions, and architecture notes.' },
+    { file:'readme.md',          role:'Start here',        why:'Project overview and setup guide.' },
+    { file:'package.json',       role:'Dependencies & scripts', why:'Lists all npm dependencies and runnable scripts.' },
+    { file:'requirements.txt',   role:'Dependencies',      why:'All Python packages this project requires.' },
+    { file:'go.mod',             role:'Module definition', why:'Go module path and dependency requirements.' },
+    { file:'Cargo.toml',         role:'Package manifest',  why:'Rust crate dependencies and metadata.' },
+    { file:'Dockerfile',         role:'Containerisation',  why:'How to build and run the app in Docker.' },
+    { file:'docker-compose.yml', role:'Local environment', why:'Spin up all services locally with one command.' },
+    { file:'manage.py',          role:'Django entry point', why:'Start server, run migrations, and manage the app.' },
+    { file:'main.py',            role:'Entry point',       why:'Application starts here.' },
+    { file:'app.py',             role:'Entry point',       why:'Application starts here.' },
+    { file:'server.js',          role:'Entry point',       why:'HTTP server starts here.' },
+    { file:'server.ts',          role:'Entry point',       why:'HTTP server starts here.' },
+    { file:'index.js',           role:'Entry point',       why:'Application bootstrapped here.' },
+    { file:'index.ts',           role:'Entry point',       why:'Application bootstrapped here.' },
+    { file:'src/index.js',       role:'App root',          why:'Frontend application root.' },
+    { file:'src/index.ts',       role:'App root',          why:'Frontend application root.' },
+    { file:'src/main.ts',        role:'App root',          why:'Frontend application root.' },
+    { file:'src/App.jsx',        role:'Root component',    why:'Top-level React component — renders everything.' },
+    { file:'src/App.tsx',        role:'Root component',    why:'Top-level React component (TypeScript).' },
+    { file:'pages/index.js',     role:'Home page',         why:'Next.js home page route.' },
+    { file:'pages/index.tsx',    role:'Home page',         why:'Next.js home page route (TypeScript).' },
+    { file:'app/page.tsx',       role:'Home page',         why:'Next.js 13+ app router home page.' },
+    { file:'.github/workflows/ci.yml', role:'CI pipeline', why:'Automated build, test, and deploy steps.' },
+    { file:'Makefile',           role:'Build rules',       why:'Common tasks — run `make help` to list them.' },
+    { file:'vercel.json',        role:'Deployment config', why:'Vercel routing, functions, and build settings.' },
+    { file:'tsconfig.json',      role:'TypeScript config', why:'Compiler settings, path aliases, strict mode.' },
+  ];
+
+  // also surface any file that matches typical entry-point names from the actual tree
+  const dynamic = [];
+  for(const f of allFiles){
+    const name = f.split('/').pop();
+    if(['settings.py','urls.py','wsgi.py','asgi.py'].includes(name) && !ENTRY_ROLES.some(r=>r.file===f))
+      dynamic.push({ file:f, role:'Django module', why: describeFile(f) });
+  }
+
+  return [...ENTRY_ROLES.filter(r => allFiles.has(r.file)), ...dynamic].slice(0, 10);
+}
+
+function deriveFlow(d){
+  const fw = d.frameworks || [];
+  const names = fw.map(f => f.name);
+  const boxes = [];
+
+  // Browser / client
+  if (names.some(n => ['React','Next.js','Vue.js','Svelte','Angular','Nuxt.js'].includes(n)))
+    boxes.push({ label:'Frontend', name: names.find(n=>['React','Next.js','Vue.js','Svelte','Angular','Nuxt.js'].includes(n)), highlight:true });
+  else if (names.includes('HTML5 / CSS3') || names.includes('Vanilla JavaScript (ES2020+)') || names.includes('Vanilla JavaScript (ES6+)'))
+    boxes.push({ label:'Frontend', name:'HTML/JS', highlight:true });
+
+  // API / server
+  if (names.some(n => ['Express','Fastify','Node.js (Serverless Functions)'].includes(n)))
+    boxes.push({ label:'API', name: names.find(n=>['Express','Fastify','Node.js (Serverless Functions)'].includes(n)), highlight:true });
+  else if (names.some(n => ['Django','FastAPI','Flask'].includes(n)))
+    boxes.push({ label:'Server', name: names.find(n=>['Django','FastAPI','Flask'].includes(n)), highlight:true });
+
+  // Database hint from deps
+  const fc = d.fileContents || {};
+  const allDeps = Object.values(fc).join('\n').toLowerCase();
+  if (allDeps.includes('postgres') || allDeps.includes('pg') || allDeps.includes('psycopg'))
+    boxes.push({ label:'Database', name:'PostgreSQL', highlight:false });
+  else if (allDeps.includes('mysql') || allDeps.includes('pymysql'))
+    boxes.push({ label:'Database', name:'MySQL', highlight:false });
+  else if (allDeps.includes('mongodb') || allDeps.includes('mongoose') || allDeps.includes('pymongo'))
+    boxes.push({ label:'Database', name:'MongoDB', highlight:false });
+  else if (allDeps.includes('sqlite'))
+    boxes.push({ label:'Database', name:'SQLite', highlight:false });
+  else if (allDeps.includes('redis'))
+    boxes.push({ label:'Cache', name:'Redis', highlight:false });
+
+  // Deployment
+  if (names.includes('Vercel'))
+    boxes.push({ label:'Deploy', name:'Vercel', highlight:false });
+  else if (names.includes('Docker'))
+    boxes.push({ label:'Deploy', name:'Docker', highlight:false });
+
+  // Fallback
+  if (boxes.length === 0)
+    boxes.push({ label:'Codebase', name: d.repo.name, highlight:true });
+
+  return boxes;
+}
+
+function deriveChecklist(d){
+  const fw = d.frameworks || [];
+  const t = d.tests || {};
+  const fc = d.fileContents || {};
+  const hasPkg = !!fc['package.json'];
+  const hasReqs = !!fc['requirements.txt'];
+  const hasCi = fw.some(f => f.name === 'GitHub Actions') || t.ciConfig;
+
+  const steps = [
+    { title:'Read the README',
+      desc:'Understand the project\'s purpose, architecture, and any prerequisites before writing code.' },
+  ];
+
+  if (hasPkg)
+    steps.push({ title:'Install dependencies',
+      desc:`Run <code class="dep-name" style="background:var(--panel2);padding:1px 5px;border-radius:4px;">npm install</code> to get all packages listed in package.json.` });
+  if (hasReqs)
+    steps.push({ title:'Set up Python environment',
+      desc:`Create a virtual environment and install packages: <code class="dep-name" style="background:var(--panel2);padding:1px 5px;border-radius:4px;">python -m venv venv && pip install -r requirements.txt</code>` });
+
+  const envFiles = Object.keys(d.fileTree||{}).filter(k => k.endsWith('.env.example') || k.endsWith('.env.sample'));
+  if (envFiles.length)
+    steps.push({ title:'Set up environment variables',
+      desc:`Copy <code class="dep-name" style="background:var(--panel2);padding:1px 5px;border-radius:4px;">${escapeHtml(envFiles[0])}</code> to <code class="dep-name" style="background:var(--panel2);padding:1px 5px;border-radius:4px;">.env</code> and fill in the values.` });
+
+  if (fw.some(f => f.name === 'Django'))
+    steps.push({ title:'Run database migrations',
+      desc:`Run <code class="dep-name" style="background:var(--panel2);padding:1px 5px;border-radius:4px;">python manage.py migrate</code> to set up the database schema.` });
+
+  if (fw.some(f => f.name === 'Docker' || f.name === 'Vercel') || Object.keys(d.fileTree||{}).includes('docker-compose.yml'))
+    steps.push({ title:'Start services locally',
+      desc:`Use <code class="dep-name" style="background:var(--panel2);padding:1px 5px;border-radius:4px;">docker-compose up</code> or the dev server command to run all services together.` });
+
+  steps.push({ title:'Browse the key files',
+    desc:'Use the Explorer tab to read the entry-point files and understand how the code is structured before diving in.' });
+
+  if (t.hasTests)
+    steps.push({ title:'Run the test suite',
+      desc:`Confirm everything is working: <code class="dep-name" style="background:var(--panel2);padding:1px 5px;border-radius:4px;">${escapeHtml(t.testCommand)}</code>. All tests should pass before you start making changes.` });
+  else
+    steps.push({ title:'Note: no tests detected',
+      desc:'This repo has no automated tests. Be extra careful when making changes and manually verify behaviour.' });
+
+  if (hasCi)
+    steps.push({ title:'Check the CI pipeline',
+      desc:'GitHub Actions is configured — review <code class="dep-name" style="background:var(--panel2);padding:1px 5px;border-radius:4px;">.github/workflows/</code> to understand what runs on every push.' });
+
+  steps.push({ title:'Ask the AI assistant',
+    desc:'Switch to the Assistant tab and ask anything — "How do I add a new route?", "What does X file do?", "How is auth handled?"' });
+
+  return steps;
+}
+
+function populateOnboarding(d){
+  const r = d.repo;
+
+  // TL;DR
+  document.getElementById('ob-title').textContent = 'Getting Started — ' + r.name;
+  document.getElementById('ob-subtitle').textContent = r.description;
+
+  // Run commands
+  const cmds = deriveRunCommands(d);
+  document.getElementById('ob-run').innerHTML = cmds.map(c => `
+    <div style="margin-top:12px;">
+      <div class="cmd-label">${escapeHtml(c.label)}</div>
+      <div class="cmd-block">${escapeHtml(c.cmd)}</div>
+    </div>
+  `).join('');
+
+  // Entry point map
+  const entries = deriveEntryPoints(d);
+  document.getElementById('ob-entrymap').innerHTML = entries.map(e => `
+    <div class="entry-file" onclick="showTab('explorer'); setTimeout(()=>{ const el=document.querySelector('[data-path=\\'${escapeHtml(e.file).replace(/'/g,"\\'")}\\']; if(el){el.click(); el.scrollIntoView({block:'center'});}},100)">
+      <div style="padding-top:1px;">📄</div>
+      <div>
+        <div class="ef-role">${escapeHtml(e.role)}</div>
+        <div class="ef-name">${escapeHtml(e.file)}</div>
+        <div class="ef-desc">${escapeHtml(e.why)}</div>
+      </div>
+    </div>
+  `).join('');
+
+  // Architecture flow
+  const boxes = deriveFlow(d);
+  document.getElementById('ob-flow').innerHTML = boxes.map((b,i) => `
+    ${i > 0 ? '<span class="flow-arrow">→</span>' : ''}
+    <div class="flow-box ${b.highlight?'highlight':''}">
+      <div class="fb-label">${escapeHtml(b.label)}</div>
+      <div class="fb-name">${escapeHtml(b.name)}</div>
+    </div>
+  `).join('');
+
+  // Checklist
+  const steps = deriveChecklist(d);
+  document.getElementById('ob-steps').innerHTML = steps.map((s,i) => `
+    <div class="step">
+      <div class="step-num">${i+1}</div>
+      <div class="step-body">
+        <div class="step-title">${escapeHtml(s.title)}</div>
+        <div class="step-desc">${s.desc}</div>
+      </div>
+    </div>
+  `).join('');
 }
 
 // ---- Tech Stack ----
