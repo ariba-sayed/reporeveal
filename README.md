@@ -1,38 +1,43 @@
 # RepoReveal
 
-A repository analysis viewer **powered by IBM Bob IDE**. Bob ran 4 parallel subagents against this codebase — file tree, tech stack, tests/CI, and document understanding — and wrote [`data.json`](data.json). The app loads that file and renders it; Bob is the analysis engine, not a decoration.
+> Paste a GitHub repo URL and get an instant breakdown of its file tree, tech stack (with confidence scores and evidence lines), and an AI assistant that answers questions about the code — all powered by IBM Bob IDE.
+
+![RepoReveal tabs: Overview, Explorer, Tech Stack, Assistant](https://placehold.co/860x420/1b1b1b/8fd14f?text=RepoReveal+%E2%80%94+Overview+%7C+Explorer+%7C+Tech+Stack+%7C+Assistant&font=monospace)
+
+---
 
 ## How it works
 
+Bob IDE runs 4 parallel subagents against a target repository and writes the results to [`data.json`](data.json). The app loads that file and renders every tab from it — Bob is the analysis engine, not a decoration.
+
 ```
 Bob IDE (4 parallel subagents)
-  ├─ file-tree subagent      → fileTree, fileContents, languages, line counts
-  ├─ tech-stack subagent     → frameworks[], confidence scores, evidence lines
-  ├─ tests/CI subagent       → test files, CI config, deployment setup
-  └─ doc-understanding agent → repo summary, README excerpt, seeded Q&A pairs
-         │
-         ▼
-    data.json   ←  the output Bob actually generated
-         │
-         ▼
-    index.html  ←  reads data.json, populates every tab
+  ├─ file-tree          →  fileTree, fileContents, language breakdown
+  ├─ tech-stack         →  frameworks[], confidence scores, evidence lines
+  ├─ tests/CI           →  test files, CI config, deployment setup
+  └─ doc-understanding  →  repo summary, README excerpt, seeded Q&A pairs
+          │
+          ▼
+      data.json   ←  Bob's output (swap to re-analyze any repo)
+          │
+          ▼
+      index.html  ←  reads data.json, populates every tab
 ```
 
-The Assistant tab is pre-seeded with Q&A Bob produced while exploring the repo. Clicking a chip or typing a matching question returns it instantly — no inference call needed. Novel questions fall through to the live `/api/ask` serverless function (requires `BOB_API_KEY`).
+The Assistant tab is pre-seeded with Q&A Bob produced while exploring the repo — matching questions resolve instantly with no inference call. Novel questions fall through to a live `/api/ask` serverless function.
 
-## File structure
+---
 
+## Installation
+
+No build step or package manager required. Clone and serve:
+
+```bash
+git clone https://github.com/your-username/reporeveal.git
+cd reporeveal
 ```
-reporeveal/
-├─ index.html   # full SPA — all tabs read from data.json
-├─ ask.js       # Vercel serverless function — proxies live questions to IBM Bob 2.0
-├─ data.json    # Bob's analysis output — swap this to re-analyze any repo
-└─ README.md
-```
 
-## Run locally
-
-No build step. Serve the directory with any static file server:
+Then pick any static file server:
 
 ```bash
 npx serve .
@@ -40,13 +45,34 @@ npx serve .
 python3 -m http.server 8080
 ```
 
-Then open `http://localhost:8080`, click **Analyze**, and all tabs populate from `data.json`.
+Open `http://localhost:8080` in your browser.
+
+---
+
+## Usage
+
+1. Open the app in your browser.
+2. Type a repo name in the input field (e.g. `local/reporeveal`) and click **Analyze**.
+3. The app fetches `data.json` and populates all five tabs:
+
+| Tab | What you see |
+|---|---|
+| **Overview** | Repo description, language bars, commit log, README excerpt |
+| **Explorer** | Browsable file tree with inline code preview |
+| **Tech Stack** | Detected frameworks, build tools, package manifests — with confidence % and evidence lines |
+| **Assistant** | Pre-seeded Q&A from Bob's analysis; live questions proxied to IBM Bob 2.0 |
+
+### Re-analyzing a different repo
+
+`data.json` is the only thing that changes between repos. Point Bob at any repository, run the 4-subagent pattern, write the output as `data.json`, and reload — all tabs update automatically.
+
+---
 
 ## Deploy to Vercel
 
-The live Assistant tab requires a Bob API key on the server. Everything else works from `data.json` alone.
+The live Assistant tab requires a Bob API key on the server. All other tabs work from `data.json` alone.
 
-### Option A — Vercel CLI
+**Option A — Vercel CLI**
 
 ```bash
 npm i -g vercel
@@ -55,40 +81,39 @@ vercel env add BOB_API_KEY      # paste your Inference key when prompted
 vercel --prod
 ```
 
-### Option B — GitHub + Vercel dashboard
+**Option B — GitHub + Vercel dashboard**
 
 1. Push this repo to GitHub.
 2. In Vercel: **New Project → import** that repo.
-3. Framework preset: **Other** (static + one function, no build step).
+3. Framework preset: **Other** (static + one serverless function, no build step).
 4. **Settings → Environment Variables** — add:
-   | Variable | Value |
-   |---|---|
-   | `BOB_API_KEY` | your Bob Inference key |
-   | `BOB_API_URL` | *(optional)* override the default endpoint |
-   | `BOB_MODEL` | *(optional)* override `bob-2.0` |
-5. Deploy.
 
-> **Note:** env var changes require a redeploy to take effect.
+   | Variable | Required | Description |
+   |---|---|---|
+   | `BOB_API_KEY` | ✅ | Your Bob Inference API key |
+   | `BOB_API_URL` | optional | Override the default Bob endpoint |
+   | `BOB_MODEL` | optional | Override `bob-2.0` |
 
-## Getting a Bob API key
+5. Deploy. Visit your `*.vercel.app` URL and click **Analyze**.
 
-1. Log in at [bob.ibm.com](https://bob.ibm.com).
-2. Open your subscription instance → **API key management**.
-3. Create a key of type **Inference**.
-4. Copy the key immediately — you can't view it again.
-5. Copy the endpoint URL shown on that same screen and set it as `BOB_API_URL` if it differs from the default in `ask.js`.
+> Env var changes require a redeploy to take effect. If you see a 500 about `BOB_API_KEY`, the variable isn't set yet.
 
-## Re-analyzing a different repo
+**Getting a Bob API key:** log in at [bob.ibm.com](https://bob.ibm.com) → subscription instance → **API key management** → create an **Inference** key. Copy it immediately and copy the endpoint URL shown on the same screen.
 
-`data.json` is the only thing that changes between repos. To analyze a new target:
+---
 
-1. Point Bob at the target repository.
-2. Run the same 4-subagent analysis pattern (file tree, tech stack, tests/CI, doc understanding).
-3. Write the output as `data.json` using the same schema.
-4. Reload the app — all tabs update automatically.
+## File structure
 
-## Security
+```
+reporeveal/
+├─ index.html   # full SPA — all five tabs, reads from data.json
+├─ ask.js       # Vercel serverless function — proxies live questions to IBM Bob 2.0
+├─ data.json    # Bob's analysis output — the single source of truth for all tab content
+└─ README.md
+```
 
-- `BOB_API_KEY` lives in Vercel environment variables, never in source code.
-- The browser only calls `/api/ask` on the same origin — it never contacts the Bob API directly.
-- `ask.js` validates the HTTP method and request body before forwarding anything upstream.
+---
+
+## License
+
+MIT
